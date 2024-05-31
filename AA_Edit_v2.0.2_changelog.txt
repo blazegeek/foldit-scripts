@@ -1,0 +1,25 @@
+version 1.2 -- 2016/12/23 -- LociOiling
+* clone of PS Edit v1.2
+* enable 1-step undo with undo.SetUndo ( false )
+
+version 2.0 -- 2018/09/02 -- LociOiling
+* detect and report multiple chains
+* force filters on at beginning and end
+* handle DNA and RNA, use single-letter codes externally
+* refine scriptlog output, eliminate timing calls
+
+version 2.0.1 -- 2020/04/16 -- LociOiling
+* handle proline at N-terminal correctly
+
+version 2.0.2 -- 2022/05/20 -- LociOiling
+* handle cases where structure.GetAminoAcid throws an error
+* handle lots of little peptides
+* don't treat ligands as chains
+* handle a binder target (or similar) with no C-term
+* fix bug in setChain
+
+version 2.0.2.1 -- 2024-05-31 -- Hunter Lecavalier
+* move changelog to separate file
+* simplify/consolidate script name
+* removes whitespace between function name and trailing parentheses in function calls
+* restructures comments to use soft wraps (reducing screen space)
