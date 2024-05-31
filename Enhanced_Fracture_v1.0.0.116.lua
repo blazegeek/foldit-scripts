@@ -1,9 +1,5 @@
--- An enhanced version of MurloW's Fracture v2.1
--- function SortItWell(SsP) mangled and assimilated from drjr: BareBones Rebuilder 1.11
--- Some (parts of-)functions from Quaker v3.1 500 by Raven_pl
-
 scriptName = "Enchanced Fracture 1.0"
-buildNumber = 116
+buildNumber = 122
 
 debugOutput = false
 
@@ -405,7 +401,7 @@ function dialogPreset()
 	print("2 = DRW Large-Med RB (8-5)")
 	print("3 = RR Large-Med RB (8-5)")
 	print("4 = RR Small RB (4-2)")
-	print("5 = RR Small RB (3-4)")
+	print("5 = RR Tiny RB (2-1)")
 	print("Mid Game:")
 	print("1 = DRW Med RB (6-4)")
 	print("2 = RR Large-Med RB (8-5)")
@@ -436,6 +432,7 @@ function dialogPreset()
 			break
 		end
 	end
+	--for contact map puzzles
 	--[[
 	for y = 1, numSegments - 2 do
 		for j = y + 2, numSegments do
@@ -462,7 +459,7 @@ function dialogPreset()
 	opt.maxCI = dialog.AddSlider("Maximum CI:", maxCI, 0.1, 1, 2)
 	opt.iterationMultiplier = dialog.AddSlider("Iteration Multiplier:", iterationMultiplier, 0.1, 10.0, 1)
 	opt.startGame = dialog.AddCheckbox("Early Game - Fast & Loose ", false)
-	opt.startGameLevel = dialog.AddSlider("", 1, 1, 5, 0)
+	opt.startGameLevel = dialog.AddSlider("", 1, 1, 9, 0)
 	opt.midGame = dialog.AddCheckbox("Mid Game - Deep Rebuild & Refine ", false)
 	opt.midGameLevel = dialog.AddSlider("", 1, 1, 3, 0)
 	opt.endGame = dialog.AddCheckbox("End Game - Idealize & Polish ", false)
@@ -520,7 +517,7 @@ function dialogPreset()
 		endGameLevel = opt.endGameLevel.value
 		maxCI = opt.maxCI.value
 		disableFilters = opt.disableFilters.value
-        iterationMultiplier = opt.iterationMultiplier.value
+		iterationMultiplier = opt.iterationMultiplier.value
 
 		if isMutable == true then
 			muta = opt.muta.value
@@ -1343,6 +1340,36 @@ function contains(x, value)
 	return false
 end
 
+function getSegmentSubscores(subscorePart)
+	segmentSubscores = {}
+	for i = 1, numSegments do
+		segmentSubscores[i] = current.GetSegmentEnergySubscore(i, subscorePart)
+	end
+	return segmentSubscores
+end
+
+function getFragmentScores(rebuildLength)
+	fragmentScores = {}
+	for i = 1, numSegments - (rebuildLength - 1) do
+		local fragmentTotal = 0
+		for j = 0, rebuildLength - 1 do
+			fragmentTotal = fragmentTotal + segmentSubscores[i + j]
+		end
+		fragmentScores[i] = {}
+		fragmentScores[i][1] = fragmentTotal
+		fragmentScores[i][2] = i
+	end
+	return fragmentScores
+end
+
+function sortFragmentScores()
+	if #fragmentScores == 0 then
+		getFragmentScores(rebuildLength)
+	end
+	table.sort(fragmentScores, function(a, b) return a[1] < b[1] end)
+	return fragmentScores
+end
+
 function SortItWell(subscorePart) -- drjr
 	grid = {}
 	for i = 1, numSegments do
@@ -2057,24 +2084,43 @@ function setParameters()
 		elseif startGameLevel == 2 then
 			doRainbowRebuild = false
 			largestFirst = true
-			minRB = 5
-			maxRB = 8
+			minRB = 9
+			maxRB = 12
 		elseif startGameLevel == 3 then
-			doRainbowRebuild = true
+			doRainbowRebuild = false
 			largestFirst = true
 			minRB = 5
 			maxRB = 8
 		elseif startGameLevel == 4 then
+			doRainbowRebuild = false
+			largestFirst = true
+			minRB = 2
+			maxRB = 4
+		elseif startGameLevel == 5 then
+			doRainbowRebuild = false
+			largestFirst = true
+			minRB = 5
+			maxRB = 12
+		elseif startGameLevel == 6 then
+			doRainbowRebuild = true
+			largestFirst = true
+			minRB = 9
+			maxRB = 12
+		elseif startGameLevel == 7 then
+			doRainbowRebuild = true
+			largestFirst = true
+			minRB = 5
+			maxRB = 8
+		elseif startGameLevel == 8 then
+			doRainbowRebuild = true
+			largestFirst = true
+			minRB = 2
+			maxRB = 3
+		elseif startGameLevel == 9 then
 			doRainbowRebuild = true
 			largestFirst = true
 			minRB = 3
-			maxRB = 4
-		elseif startGameLevel == 5 then
-			doRainbowRebuild = true
-			largestFirst = false
-			minRB = 2
-			maxRB = 4
-			--rebuildsPerCycle = math.floor(numSegments / 10)
+			maxRB = 12
 		end
 	elseif midGame == true then
 		doIdealize = false
@@ -2097,7 +2143,7 @@ function setParameters()
 		end
 	elseif endGame == true then
 		doIdealize = true
-		--worstFirst = true
+		worstFirst = true
 		minRB = 2
 		maxRB = 4
 		if endGameLevel == 1 then
@@ -2124,14 +2170,14 @@ function setParameters()
 			doWiggleSidechains = true
 		elseif endGameLevel == 4 then
 			--subscorePart = "sidechain" -- this is not needed for RR
-			--if doShortCycles == true then
-				--rebuildsPerCycle = math.floor((numSegments / 3) / 2)
-			--else
-				--rebuildsPerCycle = math.floor(numSegments / 3)
-			--end
+			if doShortCycles == true then
+				rebuildsPerCycle = math.floor((numSegments / 3) / 2)
+			else
+				rebuildsPerCycle = math.floor(numSegments / 3)
+			end
 			worstFirst = false
 			doRainbowRebuild = true
-			largestFirst = true
+			largestFirst = false
 			doLocalWiggle = true
 			doWiggleSidechains = true
 		end
@@ -2317,7 +2363,7 @@ function performRainbowRebuild()
 							--selection.DeselectAll()
 							--selection.SelectRange(rebuildStart, rebuildEnd)
 							setCI(maxCI)
-							structure.WiggleAll(14, false, true)
+							structure.WiggleAll(10, false, true)
 							checkBest()
 						end
 						if doLocalWiggle then
