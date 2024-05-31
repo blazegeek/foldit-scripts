@@ -763,7 +763,7 @@ function main ()
     print ( "Puzzle: " .. puzzle.GetName () )
     print ( "Track: " .. ui.GetTrackName () )
 
-    undo.SetUndo ( false )
+    --undo.SetUndo ( false )
 
     protNfo.setNfo ()
     
