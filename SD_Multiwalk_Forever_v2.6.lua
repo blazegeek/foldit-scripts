@@ -12,6 +12,10 @@ function round(x)
 	return x - x % 0.001
 end
 
+function trunc(x)
+	return x - x % 1
+end
+
 function score()
 	s = current.GetScore()
 		if s == 0 then
@@ -122,7 +126,6 @@ function M3wiggleSequence(scoreThreshold)
 	doShakeSidechains = 0
 	wiggleCycles = 5
 	maxIterations = 10
-	-- scoreThreshold = 0.0001
 	maxWiggle = 5
 	initialScore = current.GetScore()
 	save.Quicksave(10)
@@ -150,7 +153,7 @@ function M3wiggleSequence(scoreThreshold)
 				scoreBefore = scoreAfter
 				structure.LocalWiggleSelected(wiggleCycles)
 				scoreAfter = current.GetScore()
-				if( (scoreAfter - scoreBefore) > scoreThreshold) then
+				if ((scoreAfter - scoreBefore) > scoreThreshold) then
 					recentbest.Restore()
 				else
 					recentbest.Restore()
@@ -161,7 +164,7 @@ function M3wiggleSequence(scoreThreshold)
 				structure.ShakeSidechainsSelected(1)
 			end
 			if (doWiggleSidechains == 1) then
-				structure.WiggleAll(1,false,true)
+				structure.WiggleAll(1, false, true)
 			end
 			if ((current.GetScore() - scoreStart) > scoreThreshold) then
 			end
@@ -175,10 +178,6 @@ function MoonWalker(scoreThreshold)
 		behavior.SetClashImportance(1)
 		selection.DeselectAll()
 		freeze.UnfreezeAll()
-	end
-
-	function get_protein_score(segment_count)
-		return current.GetScore()
 	end
 
 	function wiggle_it_out(wiggle_params)
@@ -196,14 +195,14 @@ function MoonWalker(scoreThreshold)
 			last = numSegments
 		end
 		selection.SelectRange(first, last)
-		local end_score = get_protein_score()
+		local end_score = score()
 		local points_increased = false
 		local beginning_score = end_score
 		repeat
 			start_score = end_score
 			structure.LocalWiggleSelected(wiggle_params.local_wiggle)
 			recentbest.Restore()
-			end_score = get_protein_score()
+			end_score = score()
 		until end_score < start_score + wiggle_params.local_tolerance
 		if beginning_score + wiggle_params.local_tolerance < end_score then
 			points_increased = true
@@ -215,7 +214,7 @@ function MoonWalker(scoreThreshold)
 		local i
 		local reset
 		local rewiggle_increment = 1
-		local rewiggle_score = get_protein_score() + rewiggle_increment
+		local rewiggle_score = score() + rewiggle_increment
 		i = start
 		while i <= finish do
 			local j
@@ -242,7 +241,7 @@ function MoonWalker(scoreThreshold)
 					end
 				end
 			end
-			local new_score = get_protein_score()
+			local new_score = score()
 			if new_score > rewiggle_score then
 				wiggle_it_out(wiggle_params)
 				rewiggle_score = new_score + rewiggle_increment
@@ -269,10 +268,6 @@ function PiWalkerCamponV2(scoreThreshold)
 			number = 1
 		end
 		return number
-	end
-
-	function get_protein_score(segment_count)
-		return current.GetScore()
 	end
 
 	function rotate_pattern(pattern_list)
@@ -309,14 +304,14 @@ function PiWalkerCamponV2(scoreThreshold)
 	function do_the_local_wiggle_campon(first, last, wiggle_params)
 		selection.DeselectAll()
 		selection.SelectRange(first,last)
-		local end_score = get_protein_score()
+		local end_score = score()
 		local points_increased = false
 		local beginning_score = end_score
 		repeat
 			start_score = end_score
 			structure.LocalWiggleSelected(wiggle_params.local_wiggle)
 			recentbest.Restore()
-			end_score = get_protein_score()
+			end_score = score()
 		until end_score < start_score + wiggle_params.local_campon_tolerance
 		if beginning_score + wiggle_params.local_campon_tolerance < end_score then
 			points_increased = true
@@ -484,7 +479,7 @@ function Precise_LWS_fn()
 		worst = {}
 		for i = 1, numSegments do
 			sc = current.GetSegmentEnergyScore(i)
-			worst[i]=sc
+			worst[i] = sc
 		end
 		return worst
 	end
@@ -656,7 +651,7 @@ function SdHowMany(startNum, howmany)
 		structure.SetSecondaryStructureSelected('L')
 		selection.DeselectAll()
 		recentbest.Restore()
-		scoreStart=current.GetScore()
+		scoreStart = current.GetScore()
 		segF = 1
 		for	hhn = sn,hm do
 			HH(hhn, segF, numSegments)
@@ -667,9 +662,6 @@ function SdHowMany(startNum, howmany)
 end -- function SdHowMany(startNum, howmany)
 
 function Stabilize_fn()
-	function Down(x)
-		return x - x % 1
-	end
 
 	function SelectSphere(sg, radius)
 		selection.DeselectAll()
@@ -688,17 +680,17 @@ function Stabilize_fn()
 		return score
 	end
 
-	function GetWorst(sctbl)
-		local min = sctbl[1]
-		local wrst = 1
-		for x = 2, #sctbl do
-			if sctbl[x] < min then
-			 wrst = x
-			 min = sctbl[x]
+	function GetWorst(scoreTable)
+		local min = scoreTable[1]
+		local worst = 1
+		for x = 2, #scoreTable do
+			if scoreTable[x] < min then
+			 worst = x
+			 min = scoreTable[x]
 			end
 		end
-		sctbl[wrst] = 99999
-		return wrst
+		scoreTable[worst] = 99999
+		return worst
 	end
 
 	function Gibaj(jak, iters, minppi) -- Score conditioned recursive wiggle/shake
@@ -753,17 +745,17 @@ function Stabilize_fn()
 	end
 
 	function StabilizeWorstSphere(sgmnts)
-		sgmnts = Down(sgmnts)
+		sgmnts = trunc(sgmnts)
 		recentbest.Restore()
-		sctbl = PartialScoreTable()
+		scoreTable = PartialScoreTable()
 		for i = 1, sgmnts do
 			local found = false
-			local wrst = 0
-			wrst = GetWorst(sctbl)
+			local worst = 0
+			worst = GetWorst(scoreTable)
 			selection.DeselectAll()
-			selection.Select(wrst)
+			selection.Select(worst)
 			wig(20)
-			SelectSphere(wrst, 11)
+			SelectSphere(worst, 11)
 			wss(1)
 			wig(20)
 		end
