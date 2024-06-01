@@ -26,7 +26,7 @@ end
 
 function AllLoop() -- This is the more complicated version of the function
 	local ok = false
-	for i = 1, segCount do
+	for i = 1, numSegments do
 		local ss = structure.GetSecondaryStructure(i)
 		if ss ~= "L" then
 			save.SaveSecondaryStructure()
@@ -248,8 +248,6 @@ function MoonWalker(scoreThreshold)
 end
 
 function PiWalkerCamponV2(scoreThreshold)
-	g_segments = structure.GetCount()
-
 	function mynextmode(number, maximum)
 		number = number + 1
 		if number > maximum then
@@ -285,7 +283,7 @@ function PiWalkerCamponV2(scoreThreshold)
 		local current_segment = start_index
 		local current_pattern = 1
 		selection.DeselectAll()
-		while current_segment < g_segments do
+		while current_segment < numSegments do
 			selection.Select(current_segment)
 			current_segment = current_segment + pattern_list[current_pattern]
 			current_pattern = mynextmode(current_pattern,pattern_length)
@@ -346,10 +344,10 @@ function PiWalkerCamponV2(scoreThreshold)
 		local saved_changed
 		repeat
 		current_pattern, current_segment, end_segment, last_current_segment, last_end_segment = do_a_local_wiggle(current_pattern, current_segment, end_segment, last_current_segment, last_end_segment, pattern_list, wiggle_params)
-		until end_segment > g_segments
+		until end_segment > numSegments
 
-		if current_segment <= g_segments then
-			do_a_local_wiggle(current_pattern, current_segment, g_segments, last_current_segment, last_end_segment, pattern_list, wiggle_params)
+		if current_segment <= numSegments then
+			do_a_local_wiggle(current_pattern, current_segment, numSegments, last_current_segment, last_end_segment, pattern_list, wiggle_params)
 		end
 	end
 
@@ -380,7 +378,7 @@ function PiWalkerCamponV2(scoreThreshold)
 
 	pattern_list = {2,3,3,4} -- Distance between frozen segments. Experiment 2,2,3,3,4,4, whatever.
 	pattern_length = #pattern_list
-	pattern_list_ok = verify_pattern_list(pattern_list,g_segments)
+	pattern_list_ok = verify_pattern_list(pattern_list,numSegments)
 
 	wiggle_params = {}
 	wiggle_params.local_wiggle = 12
@@ -395,9 +393,8 @@ function PiWalkerCamponV2(scoreThreshold)
 end -- function PiWalkerCamponV2(scoreThreshold)
 
 function Power_Walker_fn()
-	g_segments = structure.GetCount() -- total number of segments in puzzle, last seg
-	g_total_score = 0 -- Recent best to compare to and see if score was improved
-	g_startSeg = 1 -- Segment to start with
+	g_total_score = 0
+	g_startSeg = 1
 
 	function walk_it(seg, step, time)
 		selection.DeselectAll()
@@ -413,7 +410,7 @@ function Power_Walker_fn()
 	end
 
 	function next_seg(seg, step,time)
-		if ((seg + step) == g_segments) then
+		if ((seg + step) == numSegments) then
 			return nil
 		else
 			if (step == 1) then
@@ -471,7 +468,7 @@ function Precise_LWS_fn()
 	local function score()
 		s = current.GetScore()
 			if s == 0 then
-				for i = 1, structure.GetCount() do
+				for i = 1, numSegments do
 					s = s + current.GetSegmentEnergyScore(i)
 				end
 				s = s + 8000
@@ -481,7 +478,7 @@ function Precise_LWS_fn()
 
 	local function getworst()
 		worst = {}
-		for i = 1, structure.GetCount() do
+		for i = 1, numSegments do
 			sc = current.GetSegmentEnergyScore(i)
 			worst[i]=sc
 		end
@@ -506,8 +503,7 @@ function Precise_LWS_fn()
 		selection.DeselectAll()
 		freeze.UnfreezeAll()
 		sgs = score()
-		maxi = structure.GetCount()
-		if s + 1 <= maxi then
+		if s + 1 <= numSegments then
 			selection.Select(s + 1)
 		end
 		if s - 1 >= 1 then
@@ -520,7 +516,7 @@ function Precise_LWS_fn()
 
 		if buddies > 0 then
 			for b = 1, buddies do
-				if s + b + 1 <= maxi then
+				if s + b + 1 <= numSegments then
 					selection.Select(s + b + 1)
 				end
 				if s - 1 >= 1 then
@@ -528,13 +524,13 @@ function Precise_LWS_fn()
 				end
 				freeze.FreezeSelected(true, true)
 				selection.DeselectAll()
-				if s + b > maxi then
-					selection.SelectRange(s, maxi)
+				if s + b > numSegments then
+					selection.SelectRange(s, numSegments)
 				else selection.SelectRange(s, s + b)
 				end
 				wig(mingain)
 
-				if s + 1 <= maxi then
+				if s + 1 <= numSegments then
 					selection.Select(s + 1)
 				end
 				if s - b - 1 >= 1 then
@@ -548,7 +544,7 @@ function Precise_LWS_fn()
 				end
 				wig(mingain)
 
-				if s + b + 1 <= maxi then
+				if s + b + 1 <= numSegments then
 					selection.Select(s + b + 1)
 				end
 				if s - b - 1 >= 1 then
@@ -556,8 +552,8 @@ function Precise_LWS_fn()
 				end
 				freeze.FreezeSelected(true, true)
 				selection.DeselectAll()
-				if s + b > maxi then
-					selection.SelectRange(s, maxi)
+				if s + b > numSegments then
+					selection.SelectRange(s, numSegments)
 				else selection.SelectRange(s, s + b)
 				end
 				if s - b < 1 then
@@ -580,7 +576,7 @@ function Precise_LWS_fn()
 		for i = 1, howmany do
 			min = worst[1]
 			seg = 1
-			for f = 2,structure.GetCount() do
+			for f = 2, numSegments do
 				if min > worst[f] then
 					min = worst[f]
 					seg = f
@@ -658,9 +654,8 @@ function SdHowMany(startNum, howmany)
 		recentbest.Restore()
 		scoreStart=current.GetScore()
 		segF = 1
-		segL = structure.GetCount()
 		for	hhn = sn,hm do
-			HH(hhn, segF, segL)
+			HH(hhn, segF, numSegments)
 			recentbest.Restore()
 		end
 	end -- SdWalkAllHH
@@ -668,8 +663,6 @@ function SdHowMany(startNum, howmany)
 end -- function SdHowMany(startNum, howmany)
 
 function Stabilize_fn()
-	segCount = structure.GetCount()
-
 	function Score()
 		return current.GetScore()
 	end
@@ -682,7 +675,7 @@ function Stabilize_fn()
 
 	function SelectSphere(sg, radius)
 		selection.DeselectAll()
-		for i = 1, segCount do
+		for i = 1, numSegments do
 			if structure.GetDistance(sg, i) < radius then
 				selection.Select(i)
 			end
@@ -691,7 +684,7 @@ function Stabilize_fn()
 
 	function PartialScoreTable()
 		local score = {}
-		for i = 1, segCount do
+		for i = 1, numSegments do
 			score[i] = current.GetSegmentEnergyScore(i)
 		end
 		return score
@@ -780,12 +773,12 @@ function Stabilize_fn()
 
 	function Stabilize(maxLoops)
 		behavior.SetClashImportance(1)
-		local sstart= Score()
+		local sstart = Score()
 		for iters = 1, maxLoops do
 			local ss = Score()
 			selection.SelectAll()
 			wss(2)
-			StabilizeWorstSphere(segCount / 20)
+			StabilizeWorstSphere(numSegments / 20)
 			local gain = Score() - ss
 			if gain < 200 then
 				break
@@ -820,8 +813,8 @@ function TotalLWS(scoreThreshold)
 		function freezeT(start, len)
 			freeze.UnfreezeAll()
 			selection.DeselectAll()
-			for f = start, maxs, len + 1 do
-				if f <= maxs then
+			for f = start, numSegments, len + 1 do
+				if f <= numSegments then
 					selection.Select(f)
 				end
 			end
@@ -849,15 +842,15 @@ function TotalLWS(scoreThreshold)
 				selection.SelectRange(1, start - 1)
 				lw(minppi)
 			end
-			for i = start, maxs, len + 1 do
+			for i = start, numSegments, len + 1 do
 				selection.DeselectAll()
 				local ss = i+1
 				local es = i + len
-				if ss >= maxs then
-					ss = maxs
+				if ss >= numSegments then
+					ss = numSegments
 				end
-				if es >= maxs then
-					es = maxs
+				if es >= numSegments then
+					es = numSegments
 				end
 				selection.SelectRange(ss, es)
 				lw(minppi)
@@ -870,7 +863,6 @@ function TotalLWS(scoreThreshold)
 			behavior.SetClashImportance(1)
 			save.SaveSecondaryStructure()
 			AllLoop()
-			maxs = structure.GetCount()
 			local ssc = score()
 			for l = minlen, maxlen do
 				for s = 1, l + 1 do
@@ -888,8 +880,6 @@ function TotalLWS(scoreThreshold)
 end -- function TotalLWS(scoreThreshold)
 
 function walker_1point1_fn()
-	segCount = structure.GetCount()
-
 	function Score()
 		return current.GetScore()
 	end
@@ -904,7 +894,7 @@ function walker_1point1_fn()
 		if nodeselect ~= true then
 			selection.DeselectAll()
 		end
-		for i = 1, segCount do
+		for i = 1, numSegments do
 			if structure.GetDistance(sg, i) < radius then
 				selection.Select(i)
 			end
@@ -989,7 +979,7 @@ function walker_1point1_fn()
 	function Walker()
 		local ss = Score()
 		if endS == nil then
-			endS = segCount
+			endS = numSegments
 		end
 
 		recentbest.Restore()
@@ -1020,7 +1010,6 @@ function walker_1point1_fn()
 end -- function walker_1point1_fn()
 
 function WormLWS(scoreThreshold)
-	segCount = structure.GetCount()
 	local function Score()
 		return current.GetScore()
 	end
@@ -1045,7 +1034,7 @@ function WormLWS(scoreThreshold)
 
 	function Worm()
 		if sEnd == nil then
-			sEnd=segCount
+			sEnd = numSegments
 		end
 		AllLoop()
 		recentbest.Restore()
