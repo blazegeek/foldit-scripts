@@ -23,3 +23,4 @@ version 2.0.2.1 -- 2024-05-31 -- Hunter Lecavalier
 * simplify/consolidate script name
 * removes whitespace between function name and trailing parentheses in function calls
 * restructures comments to use soft wraps (reducing screen space)
+
