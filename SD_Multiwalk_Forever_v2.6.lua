@@ -24,6 +24,22 @@ function deleteBands()
 	end
 end
 
+function AllLoop() -- This is the more complicated version of the function
+	local ok = false
+	for i = 1, segCount do
+		local ss = structure.GetSecondaryStructure(i)
+		if ss ~= "L" then
+			save.SaveSecondaryStructure()
+			ok = true
+			break
+		end
+	end
+	if ok then
+		selection.SelectAll()
+		structure.SetSecondaryStructureSelected("L")
+	end
+end
+
 function startWalker(loop, step, total, script, from, startNum, to, howmany)
 	local loop = loop or ""
 	local step = step or ""
@@ -794,10 +810,12 @@ function TotalLWS(scoreThreshold)
 			return current.GetScore()
 		end
 
+		--[[
 		function AllLoop()
 			selection.SelectAll()
 			structure.SetSecondaryStructureSelected("L")
 		end
+		]]--
 
 		function freezeT(start, len)
 			freeze.UnfreezeAll()
@@ -1008,22 +1026,6 @@ function WormLWS(scoreThreshold)
 	end
 	function round(x)
 		return x - x % 0.001
-	end
-
-	function AllLoop()
-		local ok = false
-		for i = 1, segCount do
-			local ss = structure.GetSecondaryStructure(i)
-			if ss ~= "L" then
-				save.SaveSecondaryStructure()
-				ok = true
-				break
-			end
-		end
-		if ok then
-			selection.SelectAll()
-			structure.SetSecondaryStructureSelected("L")
-		end
 	end
 
 	function lw(minppi)
