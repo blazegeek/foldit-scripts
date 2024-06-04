@@ -1,150 +1,275 @@
--- Adapted from Karen CH's script
-min_residue = 1
-max_residue =  999
-n_residues = 0
-fragment_length = 5
-score_type = 1
-original_slow_filters_setting = 0
-curr_best_score = 0
-kLowCI = 0.3
-kOriginalStructureOrNewBest = 10
+scriptName = "Cut & Wiggle 2.0 RC1"
+buildNumber = 36
 
-function r3 ( x )
-  t  = 10 ^ 3
-  return math.floor ( x * t ) /  t 
+function trunc(x)
+	return math.floor(x * 1000) / 1000
 end
 
-function GetScore ()
-  if ( score_type == 1 ) then
-    score = current.GetScore () 
-  elseif ( score_type == 2 ) then
-    behavior.SetFiltersDisabled ( false )
-    score = current.GetScore () 
-    behavior.SetFiltersDisabled ( true )
-  end
-  return score
+function checkScore()
+	local score
+	if (disableFilters == true) then
+		behavior.SetFiltersDisabled(false)
+		score = current.GetEnergyScore()
+		behavior.SetFiltersDisabled(true)
+	else
+		score = current.GetEnergyScore()
+	end
+	return score
 end
 
-function DoesPuzzleHaveSlowFilters ()
-  init_setting = behavior.GetSlowFiltersDisabled ()
-  if ( init_setting == false ) then
-    score_without_sf = current.GetScore () 
-    behavior.SetSlowFiltersDisabled ( true )
-    score_with_sf = current.GetScore () 
-  else
-    score_with_sf = current.GetScore () 
-    behavior.SetSlowFiltersDisabled ( false )
-    score_without_sf = current.GetScore () 
-  end
-  behavior.SetSlowFiltersDisabled ( init_setting )
-  if ( math.abs ( score_without_sf - score_with_sf ) >1e-3 ) then
-    return true
-  else
-    return false
-  end
+function checkSlowFilters()
+	local scoreWithFilters
+	local scoreWithoutFilters
+	if (originalFilterSetting == false) then
+		scoreWithoutFilters = current.GetEnergyScore()
+		behavior.SetSlowFiltersDisabled(true)
+		scoreWithFilters = current.GetEnergyScore()
+	else
+		scoreWithFilters = current.GetEnergyScore()
+		behavior.SetSlowFiltersDisabled(false)
+		scoreWithoutFilters = current.GetEnergyScore()
+	end
+	behavior.SetSlowFiltersDisabled(originalFilterSetting)
+	if (math.abs(scoreWithoutFilters - scoreWithFilters) > 0.001) then
+		return true
+	else
+		return false
+	end
 end
 
-function Go ()
-  n_iterations_without_improvement = 0
-  n = 0
-  while true do
-    for j = 0 , fragment_length - 1 do
-      n = n + 1
-      undo.SetUndo ( false )
-      save.Quickload ( kOriginalStructureOrNewBest )
-      for i = min_residue + j , max_residue , fragment_length do
-        structure.InsertCut ( i )
-      end
-      selection.SelectRange ( min_residue , max_residue )
-      behavior.SetClashImportance ( kLowCI )
-      structure.WiggleSelected ( 1 )
-      behavior.SetClashImportance ( 1.0 )
-      structure.WiggleSelected ( 10 )
-      for i = min_residue + j , max_residue , fragment_length do
-        structure.DeleteCut ( i )
-      end
-      undo.SetUndo ( true )
-      behavior.SetClashImportance ( kLowCI )
-      structure.WiggleSelected ( 1 )
-      behavior.SetClashImportance ( 1.0 )
-      structure.WiggleSelected ( 10 )
-      score = GetScore ()
-      print ( "n " .. n .. " " .. r3 ( score ) )
-      if ( score > curr_best_score ) then
-        save.Quicksave ( kOriginalStructureOrNewBest )
-        curr_best_score = score
-        print ( "Improvement to " .. r3 ( score ) )
-        n_iterations_without_improvement = 0
-      else
-        n_iterations_without_improvement = n_iterations_without_improvement + 1
-      end
-      if ( n_iterations_without_improvement >= fragment_length ) then
-        return
-      end
-    end
-  end
+-- for puzzles with locked segments, find the non-locked portion and adjust accordingly
+function checkLocked()
+	print("Checking for locked segments...") -- for testing
+	while ((structure.IsLocked(startSegment) == true) and (startSegment <= numSegments)) do
+		-- from segment 1, incrememt starting segment until first non-locked segment found
+		startSegment = startSegment + 1
+	end
+	while ((structure.IsLocked(endSegment) == true) and (endSegment >= 1)) do
+		-- decrement ending segment until last non-locked segment found
+		endSegment = endSegment - 1
+	end
+	return startSegment, endSegment
 end
 
-function GetParameters ()
-  local dlog = dialog.CreateDialog ( "Cut and Wiggle 1.5" )
-  dlog.min_residue = dialog.AddSlider ( "Min residue" , 1 , 1 , n_residues , 0 )  
-  dlog.max_residue = dialog.AddSlider ( "Max residue" , n_residues , 1 , n_residues , 0 )  
-  dlog.fragment_length = dialog.AddSlider ( "Fragment length" , fragment_length  , 1 , 10 , 0 )  
-  dlog.cidm = dialog.AddSlider ( "Clash importance" , kLowCI , 0 , 1.0 , 2 )  
-  if ( DoesPuzzleHaveSlowFilters () == true ) then
-    score_type = 2
-  end
-  dlog.score_type = dialog.AddSlider ( "Score type" , score_type , 1 , 2 , 0 )  
-  dlog.tp2 = dialog.AddLabel ( "1 = Normal : 2 = Normal for Filters"  )
-  dlog.ok = dialog.AddButton ( "OK" , 1 )
-  dlog.cancel = dialog.AddButton ( "Cancel" , 0 )
-  if ( dialog.Show ( dlog ) > 0 ) then
-    min_residue = dlog.min_residue.value
-    max_residue = dlog.max_residue.value
-    fragment_length = dlog. fragment_length.value
-    kLowCI = dlog.cidm.value
-    score_type = dlog.score_type.value
-    return true
-  else
-    return false
-  end
+function checkBands()
+	local numBands = band.GetCount()
+	if numBands > 0 then
+		hasBands = true
+		keepBands = true
+		for i = 1, numBands do
+			if band.IsEnabled(i) then
+				bandStates[i] = true
+				allBandsDisabled = false
+			else
+				bandStates[i] = false
+				allBandsDisabled = true
+			end
+		end
+	end
 end
 
-function main ()
-  print ( "Cut and Wiggle 1.5" )
-  band.DisableAll ()
-  n_residues = structure.GetCount ()
-  save.Quicksave ( kOriginalStructureOrNewBest )
-  behavior.SetClashImportance ( 1.0 )
-  original_slow_filters_setting = behavior.GetSlowFiltersDisabled ()
-  if ( GetParameters () == false ) then
-    return
-  end
-  print  ( "Range " .. min_residue .. " to " .. max_residue )
-  print  ( "Fragment length " .. fragment_length  )
-  print  ( "Clash importance low " .. r3 ( kLowCI ) )
-  if ( score_type == 1 ) then
-    print (  "Score type : Normal" )
-  elseif ( score_type == 2 ) then
-    print (  "Score type : Normal/Slow Filters" )
-  end
-  curr_best_score = GetScore ()
-  print ( "Start score " .. r3 ( curr_best_score ) )
-  print  ( "" )
-  Go ()
-  cleanup ()
+function performCutWiggle()
+	if (useCreditBest == true) then
+		creditbest.Restore()
+		currentBestScore = checkScore()
+	else
+		save.Quickload(saveSlot)
+		currentBestScore = checkScore()
+	end
+	startScore = currentBestScore
+	currentGain = 0
+	totalGain = 0
+	print("Start score:", trunc(startScore))
+	print("Range:", startSegment .. " - " .. endSegment)
+	print("Fragment Length:", fragmentLength)
+	print("Low Clash Importance:", lowCI)
+	print("Disable Slow Filters:", tostring(disableFilters))
+	if (keepCI == true) then
+		maxCI = originalCI
+		print("Keep Current CI (" .. originalCI .. "):", tostring(keepCI))
+	else
+		maxCI = 1.0
+	end
+	if (useCreditBest == true) then
+		print("Using Credit Best")
+	else
+		print("Using QuickSave " .. saveSlot)
+	end
+	print("")
+
+	failCounter = 0
+	runCounter = 0
+
+	while true do
+		for j = 0, fragmentLength - 1 do
+			runCounter = runCounter + 1
+			undo.SetUndo(false)
+			if (useCreditBest == true) then
+				creditbest.Restore()
+			else
+				save.Quickload(saveSlot)
+			end
+			--band.DeleteAll()
+			for i = startSegment + j, endSegment, fragmentLength do
+				structure.InsertCut(i)
+			end
+			selection.SelectRange(startSegment, endSegment)
+			behavior.SetClashImportance(lowCI)
+			structure.WiggleSelected(1)
+			behavior.SetClashImportance(maxCI)
+			structure.WiggleSelected(10)
+			for i = startSegment + j, endSegment, fragmentLength do
+				structure.DeleteCut(i)
+			end
+			undo.SetUndo(true)
+			behavior.SetClashImportance(lowCI)
+			structure.WiggleSelected(1)
+			behavior.SetClashImportance(maxCI)
+			structure.WiggleSelected(10)
+			currentScore = checkScore()
+			--print("Run:", runCounter, trunc(currentScore))
+			if (currentScore > currentBestScore) then
+				save.Quicksave(saveSlot)
+				currentGain = currentScore - currentBestScore
+				currentBestScore = currentScore
+				totalGain = currentBestScore - startScore
+				--print("Gained:", trunc(currentGain), "Total Gain:", trunc(totalGain))
+				failCounter = 0
+			else
+				--print("Run: " .. runCounter, trunc(currentScore))
+				currentGain = 0
+				failCounter = failCounter + 1
+			end
+			print("Run:", runCounter, trunc(currentScore), trunc(currentGain), trunc(totalGain), trunc(currentBestScore))
+			if (failCounter >= fragmentLength) then
+				return
+			end
+		end
+	end
 end
 
-function cleanup ()
-  print ( "Cleaning up" )
-  behavior.SetClashImportance ( 1.0 )
-  save.Quickload ( kOriginalStructureOrNewBest )
-  selection.SelectAll ()
-  band.EnableAll ()
-  if ( score_type == 2 ) then
-    behavior.SetSlowFiltersDisabled ( original_slow_filters_setting )
-  end
+function dialogOptions()
+	--local dlog = dialog.CreateDialog(scriptName)
+	checkLocked()
+	checkBands()
+	--numSegments = endSegment - startSegment + 1
+	local dlog = dialog.CreateDialog(scriptName .. " build " .. buildNumber) -- for testing
+	dlog.startSegment = dialog.AddSlider("Min residue:", startSegment, 1, numSegments, 0)
+	dlog.endSegment = dialog.AddSlider("Max residue:", endSegment, 1, numSegments, 0)
+	dlog.fragmentLength = dialog.AddSlider("Fragment length:", fragmentLength, 1, numSegments - 1, 0 )
+	dlog.lowCI = dialog.AddSlider("Low CI:", lowCI, 0, 1.0, 2)
+	dlog.wiggleIterations = dialog.AddSlider("Wiggle Iterations:", wiggleIterations, 1, 12, 0)
+	--disableFilters = checkSlowFilters()
+	dlog.disableFilters = dialog.AddCheckbox("Disable Slow Filters", disableFilters)
+	dlog.useCreditBest = dialog.AddCheckbox("Use Credit Best", useCreditBest)
+	if (originalCI ~= 1) then
+		dlog.keepCI = dialog.AddCheckbox("Use Current CI as Maximum", keepCI)
+	end
+	if hasBands == true then
+		dlog.keepBands = dialog.AddCheckbox("Keep Bands", keepBands)
+		dlog.keepBandStates = dialog.AddCheckbox("Keep Band State", keepBandStates)
+	end
+
+	dlog.ok = dialog.AddButton("OK", 1)
+	dlog.cancel = dialog.AddButton("Cancel", 0)
+
+	if (dialog.Show(dlog) > 0) then
+		startSegment = dlog.startSegment.value
+		endSegment = dlog.endSegment.value
+		fragmentLength = dlog. fragmentLength.value
+		lowCI = dlog.lowCI.value
+		wiggleIterations = dlog.fragmentLength.value
+		disableFilters = dlog.disableFilters.value
+		useCreditBest = dlog.useCreditBest.value
+		if (originalCI ~= 1) then
+			keepCI = dlog.keepCI.value
+		end
+		if hasBands == true then
+			keepBands = dlog.keepBands.value
+			keepBandStates = dlog.keepBandStates.value
+		end
+		return true
+	else
+		return false
+	end
 end
 
-xpcall ( main , cleanup )
+function cleanup(errmsg)
+	if (errmsg ~= nil) then
+		if string.find(errmsg, "Cancelled") then
+			--print("")
+			print("Cancelled by user")
+		else
+			print("")
+			print("Error:")
+			print(errmsg)
+		end
+	else
+		print("")
+		print("Done")
+	end
+	print("")
+	print("Cleaning up")
+	--reset undo state in case cancelled mid-run
+	undo.SetUndo(false)
+	undo.SetUndo(true)
+	if (disableFilters == true) then
+		behavior.SetSlowFiltersDisabled(originalFilterSetting)
+	end
+	if (keepCI == true) then
+		behavior.SetClashImportance(originalCI)
+	else
+		behavior.SetClashImportance(1.0)
+	end
+	if (useCreditBest == true) then
+		creditbest.Restore()
+	else
+		save.Quickload(saveSlot)
+	end
+	selection.DeselectAll()
+	--band.EnableAll()
+end
 
+function main()
+	--print(scriptName)
+	--band.DisableAll()
+	numSegments = structure.GetCount()
+	startSegment = 1
+	endSegment = numSegments
+	fragmentLength = 5
+	lowCI = 0.05
+	originalCI = behavior.GetClashImportance()
+	maxCI = 1.0
+	wiggleIterations = 10
+	keepCI = false
+	saveSlot = 10
+	useCreditBest = false
+	hasBands = false
+	bandStates = {}
+	keepBands = false
+	keepBandStates = false
+	originalFilterSetting = behavior.GetSlowFiltersDisabled()
+	disableFilters = originalFilterSetting
+	save.Quicksave(saveSlot)
+
+	if (originalCI ~= 1) then
+		keepCI = true
+		maxCI = originalCI
+	end
+
+	--checkLocked()
+	--checkBands()
+
+	if (dialogOptions() == false) then
+		print("Cancelled without changes")
+		return
+	end
+
+	print(scriptName, "build " .. buildNumber) -- for testing
+	print("")
+
+	performCutWiggle()
+	cleanup()
+end
+
+xpcall(main, cleanup)
