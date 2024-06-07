@@ -1,5 +1,5 @@
 scriptName = "Enchanced Fracture 1.0"
-buildNumber = 122
+buildNumber = 123
 
 debugOutput = false
 
@@ -1340,12 +1340,13 @@ function contains(x, value)
 	return false
 end
 
-function getSegmentSubscores(subscorePart)
-	segmentSubscores = {}
+function getSegmentScores()
+	segmentScores = {}
 	for i = 1, numSegments do
-		segmentSubscores[i] = current.GetSegmentEnergySubscore(i, subscorePart)
+		local thisSegScore = current.GetSegmentEnergyScore(i)
+		segmentScores[i] = thisSegScore
 	end
-	return segmentSubscores
+	return segmentScores
 end
 
 function getFragmentScores(rebuildLength)
@@ -1353,7 +1354,7 @@ function getFragmentScores(rebuildLength)
 	for i = 1, numSegments - (rebuildLength - 1) do
 		local fragmentTotal = 0
 		for j = 0, rebuildLength - 1 do
-			fragmentTotal = fragmentTotal + segmentSubscores[i + j]
+			fragmentTotal = fragmentTotal + segmentScores[i + j]
 		end
 		fragmentScores[i] = {}
 		fragmentScores[i][1] = fragmentTotal
@@ -1362,7 +1363,7 @@ function getFragmentScores(rebuildLength)
 	return fragmentScores
 end
 
-function sortFragmentScores()
+function sortFragmentScores() -- uses built-in table.sort (bubble sort?)
 	if #fragmentScores == 0 then
 		getFragmentScores(rebuildLength)
 	end
