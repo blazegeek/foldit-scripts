@@ -1,11 +1,7 @@
 scriptName = "SD Multiwalk Forever 2.6.1"
 buildNumber = 3
-timeStart = 0
-timeCycleStart = 0
-print(os.date())
-userBands = band.GetCount()
-numSegments = structure.GetCount()
-print(userBands..' user-supplied bands.\n ')
+
+--TO DO: Make each walker function user-selected. Toggle on/off any particular walker(s).
 
 -- this function isn't even used
 function round(x)
@@ -16,6 +12,7 @@ function trunc(x)
 	return x - x % 1
 end
 
+-- TO DO: Update and simplify this function to use current.GetEnergyScore()
 function score()
 	s = current.GetScore()
 		if s == 0 then
@@ -27,7 +24,7 @@ function score()
 	return s
 end
 
-function printTime()
+function printElapsedTime()
 	timeElapsed = os.time() - timeCycleStart
 	seconds = timeElapsed % 60
 	minutes = ((timeElapsed - seconds) % (60 * 60)) / 60
@@ -44,7 +41,7 @@ function deleteBands()
 	end
 end
 
-function AllLoop() -- This is the more complicated version of the function
+function setAllLoops() -- This is the more complicated version of the function
 	local ok = false
 	for i = 1, numSegments do
 		local ss = structure.GetSecondaryStructure(i)
@@ -60,6 +57,7 @@ function AllLoop() -- This is the more complicated version of the function
 	end
 end
 
+-- this seems an unnecessarily clumsy way to print some info
 function startWalker(loop, step, total, script, from, startNum, to, howmany)
 	local loop = loop or ""
 	local step = step or ""
@@ -75,9 +73,9 @@ function startWalker(loop, step, total, script, from, startNum, to, howmany)
 		howmany =""
 	end
 	print(loop .. "(" .. step .. "/" .. total .. ") Starting " .. script .. from .. startNum .. to .. howmany .. " ...")
-end
+end -- function startWalker(...)
 
-function krogWalker_v4(scoreThreshold)
+function theKrogWalker4(scoreThreshold)
 	-- Krog recommends 1-4.
 	minWiggleSegments = 1
 	maxWiggleSegments = 4
@@ -85,7 +83,7 @@ function krogWalker_v4(scoreThreshold)
 	doGlobalWiggle = false
 	runForever = false
 
-	function wiggle_walk(sectionSize, scoreThreshold, global)
+	function wiggleWalk(sectionSize, scoreThreshold, global)
 		totalGain = 0;
 		recentbest.Restore()
 		behavior.SetClashImportance(1)
@@ -116,12 +114,12 @@ function krogWalker_v4(scoreThreshold)
 	while runCondition do
 		runCondition = runForever
 		for j = minWiggleSegments, maxWiggleSegments do
-			wiggle_walk(j, scoreThreshold, doGlobalWiggle)
+			wiggleWalk(j, scoreThreshold, doGlobalWiggle)
 		end
 	end
-end
+end -- function theKrogWalker4(scoreThreshold)
 
-function M3wiggleSequence(scoreThreshold)
+function theM3WiggleSequence(scoreThreshold)
 	doWiggleSidechains = 0
 	doShakeSidechains = 0
 	wiggleCycles = 5
@@ -171,58 +169,58 @@ function M3wiggleSequence(scoreThreshold)
 			recentbest.Restore()
 		end
 	end
-end
+end -- function theM3WiggleSequence(scoreThreshold)
 
-function MoonWalker(scoreThreshold)
+function theMoonWalker(scoreThreshold)
 	function reset_protein()
 		behavior.SetClashImportance(1)
 		selection.DeselectAll()
 		freeze.UnfreezeAll()
 	end
 
-	function wiggle_it_out(wiggle_params)
+	function wiggle_it_out(wiggleParams)
 		selection.DeselectAll()
 		selection.SelectAll()
-		structure.WiggleAll(wiggle_params.sideChain_count, false, true)
-		structure.ShakeSidechainsSelected(wiggle_params.shake)
-		structure.LocalWiggleAll(wiggle_params.all_count)
+		structure.WiggleAll(wiggleParams.sideChain_count, false, true)
+		structure.ShakeSidechainsSelected(wiggleParams.shake)
+		structure.LocalWiggleAll(wiggleParams.all_count)
 		recentbest.Restore()
 	end
 
-	function do_the_local_wiggle_campon(first, last, wiggle_params)
+	function do_the_local_wiggle_campon(first, last, wiggleParams)
 		selection.DeselectAll()
 		if last > numSegments then
 			last = numSegments
 		end
 		selection.SelectRange(first, last)
-		local end_score = score()
+		local endScore = score()
 		local points_increased = false
-		local beginning_score = end_score
+		local beginningScore = endScore
 		repeat
-			start_score = end_score
-			structure.LocalWiggleSelected(wiggle_params.local_wiggle)
+			startScore = endScore
+			structure.LocalWiggleSelected(wiggleParams.local_wiggle)
 			recentbest.Restore()
-			end_score = score()
-		until end_score < start_score + wiggle_params.local_tolerance
-		if beginning_score + wiggle_params.local_tolerance < end_score then
+			endScore = score()
+		until endScore < startScore + wiggleParams.local_tolerance
+		if beginningScore + wiggleParams.local_tolerance < endScore then
 			points_increased = true
 		end
 		return points_increased
 	end
 
-	function step_wiggle(start, finish, wiggle_params)
+	function step_wiggle(start, finish, wiggleParams)
 		local i
 		local reset
-		local rewiggle_increment = 1
-		local rewiggle_score = score() + rewiggle_increment
+		local reWiggleIncrement = 1
+		local reWiggleScore = score() + reWiggleIncrement
 		i = start
 		while i <= finish do
 			local j
-			local saved_changed
+			local savedChanged
 			local points_changed = false
 			for j = 1, 3 do
-				saved_changed = do_the_local_wiggle_campon(i, i + j - 1, wiggle_params)
-				if saved_changed then
+				savedChanged = do_the_local_wiggle_campon(i, i + j - 1, wiggleParams)
+				if savedChanged then
 					points_changed = true
 				end
 			end
@@ -232,19 +230,19 @@ function MoonWalker(scoreThreshold)
 					reset = start
 				end
 				for j = 1, 3 do
-					do_the_local_wiggle_campon(reset, reset + j - 1, wiggle_params)
+					do_the_local_wiggle_campon(reset, reset + j - 1, wiggleParams)
 				end
 				reset = reset + 1
 				if reset <= i then
 					for j = 1, 3 do
-						do_the_local_wiggle_campon(reset, reset + j - 1, wiggle_params)
+						do_the_local_wiggle_campon(reset, reset + j - 1, wiggleParams)
 					end
 				end
 			end
 			local new_score = score()
-			if new_score > rewiggle_score then
-				wiggle_it_out(wiggle_params)
-				rewiggle_score = new_score + rewiggle_increment
+			if new_score > reWiggleScore then
+				wiggle_it_out(wiggleParams)
+				reWiggleScore = new_score + reWiggleIncrement
 			end
 			i = i + 1
 		end
@@ -252,16 +250,16 @@ function MoonWalker(scoreThreshold)
 
 	reset_protein()
 	recentbest.Restore()
-	wiggle_params = {}
-	wiggle_params.local_wiggle = 12
-	wiggle_params.local_tolerance = scoreThreshold
-	wiggle_params.sideChain_count = 15
-	wiggle_params.shake = 5
-	wiggle_params.all_count = 15
-	step_wiggle(1, numSegments, wiggle_params)
-end
+	wiggleParams = {}
+	wiggleParams.local_wiggle = 12
+	wiggleParams.local_tolerance = scoreThreshold
+	wiggleParams.sideChain_count = 15
+	wiggleParams.shake = 5
+	wiggleParams.all_count = 15
+	step_wiggle(1, numSegments, wiggleParams)
+end -- function theMoonWalker(scoreThreshold)
 
-function PiWalkerCamponV2(scoreThreshold)
+function thePiWalkerCampon2(scoreThreshold)
 	function mynextmode(number, maximum)
 		number = number + 1
 		if number > maximum then
@@ -270,115 +268,115 @@ function PiWalkerCamponV2(scoreThreshold)
 		return number
 	end
 
-	function rotate_pattern(pattern_list)
-		local last = #pattern_list
+	function rotate_pattern(patternList)
+		local last = #patternList
 		local i
 		if last > 1 then
-			local pattern_save = pattern_list[1]
+			local patternSave = patternList[1]
 			for i = 1, last do
-				pattern_list[i]  = pattern_list[i+1]
+				patternList[i]  = patternList[i+1]
 			end
-			pattern_list[last] = pattern_save
+			patternList[last] = patternSave
 		end
-		return pattern_list
+		return patternList
 	end
 
 	function unfreeze_protein()
 		freeze.UnfreezeAll()
 	end
 
-	function freeze_segments(start_index, pattern_list)
+	function freeze_segments(start_index, patternList)
 		unfreeze_protein()
-		local pattern_length = #pattern_list
-		local current_segment = start_index
-		local current_pattern = 1
+		local patternLength = #patternList
+		local currentSegment = start_index
+		local currentPattern = 1
 		selection.DeselectAll()
-		while current_segment < numSegments do
-			selection.Select(current_segment)
-			current_segment = current_segment + pattern_list[current_pattern]
-			current_pattern = mynextmode(current_pattern,pattern_length)
+		while currentSegment < numSegments do
+			selection.Select(currentSegment)
+			currentSegment = currentSegment + patternList[currentPattern]
+			currentPattern = mynextmode(currentPattern,patternLength)
 		end
 		freeze.FreezeSelected(true,true)
 	end
 
-	function do_the_local_wiggle_campon(first, last, wiggle_params)
+	function do_the_local_wiggle_campon(first, last, wiggleParams)
 		selection.DeselectAll()
 		selection.SelectRange(first,last)
-		local end_score = score()
+		local endScore = score()
 		local points_increased = false
-		local beginning_score = end_score
+		local beginningScore = endScore
 		repeat
-			start_score = end_score
-			structure.LocalWiggleSelected(wiggle_params.local_wiggle)
+			startScore = endScore
+			structure.LocalWiggleSelected(wiggleParams.local_wiggle)
 			recentbest.Restore()
-			end_score = score()
-		until end_score < start_score + wiggle_params.local_campon_tolerance
-		if beginning_score + wiggle_params.local_campon_tolerance < end_score then
+			endScore = score()
+		until endScore < startScore + wiggleParams.local_campon_tolerance
+		if beginningScore + wiggleParams.local_campon_tolerance < endScore then
 			points_increased = true
 		end
 		--recentbest.Restore()
 		return points_increased
 	end
 
-	function do_a_local_wiggle(current_pattern, current_segment, end_segment, last_current_segment, last_end_segment, pattern_list, wiggle_params)
-		local saved_changed
-		saved_changed = do_the_local_wiggle_campon(current_segment, end_segment, wiggle_params)
-		if saved_changed then
-			if last_current_segment ~= nil then
-				do_the_local_wiggle_campon(last_current_segment, last_end_segment, wiggle_params)
-				do_the_local_wiggle_campon(current_segment, end_segment, wiggle_params)
+	function do_a_local_wiggle(currentPattern, currentSegment, endSegment, last_currentSegment, last_endSegment, patternList, wiggleParams)
+		local savedChanged
+		savedChanged = do_the_local_wiggle_campon(currentSegment, endSegment, wiggleParams)
+		if savedChanged then
+			if last_currentSegment ~= nil then
+				do_the_local_wiggle_campon(last_currentSegment, last_endSegment, wiggleParams)
+				do_the_local_wiggle_campon(currentSegment, endSegment, wiggleParams)
 			end
 		end
-		last_current_segment = current_segment
-		last_end_segment = end_segment
-		current_segment = end_segment + 2
-		end_segment = current_segment + pattern_list[current_pattern] - 2
-		current_pattern = mynextmode(current_pattern,pattern_length)
-		return current_pattern, current_segment, end_segment, last_current_segment, last_end_segment
+		last_currentSegment = currentSegment
+		last_endSegment = endSegment
+		currentSegment = endSegment + 2
+		endSegment = currentSegment + patternList[currentPattern] - 2
+		currentPattern = mynextmode(currentPattern,patternLength)
+		return currentPattern, currentSegment, endSegment, last_currentSegment, last_endSegment
 	end
 
-	function local_wiggle_segments(first_frozen_segment, pattern_list, wiggle_params)
-		local current_segment = 0
-		local current_pattern = 1
-		local end_segment
-		local pattern_length = #pattern_list
-		local last_current_segment, last_end_segment
+	function local_wiggle_segments(first_frozen_segment, patternList, wiggleParams)
+		local currentSegment = 0
+		local currentPattern = 1
+		local endSegment
+		local patternLength = #patternList
+		local last_currentSegment, last_endSegment
 		if first_frozen_segment == 1 then
-			current_segment = 2
-			end_segment =  current_segment + pattern_list[1]-2
-			current_pattern = mynextmode(current_pattern,pattern_length)
+			currentSegment = 2
+			endSegment =  currentSegment + patternList[1]-2
+			currentPattern = mynextmode(currentPattern,patternLength)
 		else
-			current_segment = 1
-			end_segment = first_frozen_segment - 1
+			currentSegment = 1
+			endSegment = first_frozen_segment - 1
 		end
-		local saved_changed
+		local savedChanged
 		repeat
-		current_pattern, current_segment, end_segment, last_current_segment, last_end_segment = do_a_local_wiggle(current_pattern, current_segment, end_segment, last_current_segment, last_end_segment, pattern_list, wiggle_params)
-		until end_segment > numSegments
+		currentPattern, currentSegment, endSegment, last_currentSegment, last_endSegment = do_a_local_wiggle(currentPattern, currentSegment, endSegment, last_currentSegment, last_endSegment, patternList, wiggleParams)
+		until endSegment > numSegments
 
-		if current_segment <= numSegments then
-			do_a_local_wiggle(current_pattern, current_segment, numSegments, last_current_segment, last_end_segment, pattern_list, wiggle_params)
+		if currentSegment <= numSegments then
+			do_a_local_wiggle(currentPattern, currentSegment, numSegments, last_currentSegment, last_endSegment, patternList, wiggleParams)
 		end
 	end
 
-	function freeze_wiggle(pattern_list, wiggle_params)
+	function freeze_wiggle(patternList, wiggleParams)
 		local i
-		for i = 1,pattern_list[1] do
-			freeze_segments(i, pattern_list)
+		for i = 1,patternList[1] do
+			freeze_segments(i, patternList)
 			recentbest.Restore()
-			local_wiggle_segments(i, pattern_list, wiggle_params)
+			local_wiggle_segments(i, patternList, wiggleParams)
 		end
 	end
 
-	function verify_pattern_list(pattern_list, maximum)
-		if pattern_list == nil or maximum == nil then
+	function verify_patternList(patternList, maximum)
+		if patternList == nil or maximum == nil then
 			return false
 		end
 		local result = true
-		pattern_length = # pattern_list
+		patternLength = # patternList
 		local count = 0
-		for count = 1, pattern_length do
-			if pattern_list[count] == 1 or pattern_list[count] > maximum then
+		for count = 1, patternLength do
+			if patternList[count] == 1 or patternList[count] > maximum then
 				result = false
 				break
 			end
@@ -386,23 +384,23 @@ function PiWalkerCamponV2(scoreThreshold)
 		return result
 	end
 
-	pattern_list = {2,3,3,4} -- Distance between frozen segments. Experiment 2,2,3,3,4,4, whatever.
-	pattern_length = #pattern_list
-	pattern_list_ok = verify_pattern_list(pattern_list,numSegments)
+	patternList = {2,3,3,4} -- Distance between frozen segments. Experiment 2,2,3,3,4,4, whatever.
+	patternLength = #patternList
+	patternList_ok = verify_patternList(patternList,numSegments)
 
-	wiggle_params = {}
-	wiggle_params.local_wiggle = 12
-	wiggle_params.local_campon_tolerance = scoreThreshold
-	if pattern_list_ok then
-		for pattern_count = 1, pattern_length do
-			freeze_wiggle(pattern_list, wiggle_params)
+	wiggleParams = {}
+	wiggleParams.local_wiggle = 12
+	wiggleParams.local_campon_tolerance = scoreThreshold
+	if patternList_ok then
+		for pattern_count = 1, patternLength do
+			freeze_wiggle(patternList, wiggleParams)
 		end
 		unfreeze_protein()
 	else
 	end
-end -- function PiWalkerCamponV2(scoreThreshold)
+end -- function thePiWalkerCampon2(scoreThreshold)
 
-function Power_Walker_fn()
+function thePowerWalker()
 	g_total_score = 0
 	g_startSeg = 1
 
@@ -472,9 +470,9 @@ function Power_Walker_fn()
 	behavior.SetClashImportance(1.)
 	structure.LocalWiggleAll(5)
 	walk_it(g_startSeg,1,30)
-end -- function Power_Walker_fn()
+end -- function thePowerWalker()
 
-function Precise_LWS_fn()
+function thePreciseLWS()
 	local function getworst()
 		worst = {}
 		for i = 1, numSegments do
@@ -591,9 +589,10 @@ function Precise_LWS_fn()
 	mingain = 0.1 -- Minimum gain per wiggle iterations (if more per 1 wiggle wiggles again)
 	buddies = 4 -- How many adjacent segments should be wiggled too
 	wiggleworst(howmany, mingain, buddies)
-end -- function Precise_LWS_fn()
+end -- function thePreciseLWS()
 
-function s_ws_wa_whatever()
+-- this function isn't used anywhere
+function unknownWhateverSWSWA()
 	selection.SelectAll()
 	i = 0
 	while true do
@@ -612,9 +611,10 @@ function s_ws_wa_whatever()
 			break
 		end
 	end
-end -- function s_ws_wa_whatever()
+end -- function unknownWhateverSWSWA()
 
-function SdHowMany(startNum, howmany)
+function theSDHowMany(startNum, howmany)
+	-- TO DO: use more intuitive variable names
 	function HH(h, segFirst, segLast) -- This is based on a LUA version of the HelixHula code
 		for g = 0, h - 1 do
 			recentbest.Restore()
@@ -633,10 +633,10 @@ function SdHowMany(startNum, howmany)
 				recentbest.Restore()
 			end
 		end
-		selection.SelectAll()				--reset all segments to a loop
+		selection.SelectAll() --reset all segments to a loop
 		structure.SetSecondaryStructureSelected('L')
 		selection.DeselectAll()
-		structure.ShakeSidechainsSelected(1)					--shake and wiggle it out
+		structure.ShakeSidechainsSelected(1) --shake and wiggle it out
 		structure.LocalWiggleAll(5)
 		structure.ShakeSidechainsSelected(1)
 		structure.LocalWiggleAll(25)
@@ -658,10 +658,11 @@ function SdHowMany(startNum, howmany)
 			recentbest.Restore()
 		end
 	end -- SdWalkAllHH
-	SdWalkAllHH(startNum, howmany)
-end -- function SdHowMany(startNum, howmany)
 
-function Stabilize_fn()
+	SdWalkAllHH(startNum, howmany)
+end -- function theSDHowMany(startNum, howmany)
+
+function theStabilize()
 
 	function SelectSphere(sg, radius)
 		selection.DeselectAll()
@@ -786,86 +787,81 @@ function Stabilize_fn()
 
 	maxLoops = 10
 	Stabilize(maxLoops)
-end -- function Stabilize_fn()
+end -- function theStabilize()
 
-function TotalLWS(scoreThreshold)
-		--[[
-		function AllLoop()
-			selection.SelectAll()
-			structure.SetSecondaryStructureSelected("L")
+function theTotalLWS(scoreThreshold)
+
+	function freezeT(start, len)
+		freeze.UnfreezeAll()
+		selection.DeselectAll()
+		for f = start, numSegments, len + 1 do
+			if f <= numSegments then
+				selection.Select(f)
+			end
 		end
-		]]--
+		freeze.FreezeSelected(true, false)
+	end
 
-		function freezeT(start, len)
-			freeze.UnfreezeAll()
+	function lw(minppi)
+		local gain = true
+		while gain do
+			local ss = score()
+			structure.LocalWiggleSelected(2)
+			local g = score() - ss
+			if g < minppi then
+				gain = false
+			end
+			if g < 0 then
+				recentbest.Restore()
+			end
+		end
+	end
+
+	function wiggle(start, len,minppi)
+		if start > 1 then
 			selection.DeselectAll()
-			for f = start, numSegments, len + 1 do
-				if f <= numSegments then
-					selection.Select(f)
-				end
-			end
-			freeze.FreezeSelected(true, false)
+			selection.SelectRange(1, start - 1)
+			lw(minppi)
 		end
-
-		function lw(minppi)
-			local gain = true
-			while gain do
-				local ss = score()
-				structure.LocalWiggleSelected(2)
-				local g = score() - ss
-				if g < minppi then
-					gain = false
-				end
-				if g < 0 then
-					recentbest.Restore()
-				end
-			end
-		end
-
-		function wiggle(start, len,minppi)
-			if start > 1 then
-				selection.DeselectAll()
-				selection.SelectRange(1, start - 1)
-				lw(minppi)
-			end
-			for i = start, numSegments, len + 1 do
-				selection.DeselectAll()
-				local ss = i+1
-				local es = i + len
-				if ss >= numSegments then
-					ss = numSegments
-				end
-				if es >= numSegments then
-					es = numSegments
-				end
-				selection.SelectRange(ss, es)
-				lw(minppi)
-			end
-		end
-
-		function totalLwsInternal(minlen, maxlen, minppi)
-			freeze.UnfreezeAll()
+		for i = start, numSegments, len + 1 do
 			selection.DeselectAll()
-			behavior.SetClashImportance(1)
-			save.SaveSecondaryStructure()
-			AllLoop()
-			local ssc = score()
-			for l = minlen, maxlen do
-				for s = 1, l + 1 do
-					local sp = score()
-					freezeT(s, l)
-					recentbest.Restore()
-					wiggle(s, l, minppi)
-					save.Quicksave(3)
-				end
+			local ss = i + 1
+			local es = i + len
+			if ss >= numSegments then
+				ss = numSegments
 			end
-			save.LoadSecondaryStructure()
+			if es >= numSegments then
+				es = numSegments
+			end
+			selection.SelectRange(ss, es)
+			lw(minppi)
 		end
+	end
+
+	function totalLwsInternal(minLength, maxLength, minppi)
+		freeze.UnfreezeAll()
+		selection.DeselectAll()
+		behavior.SetClashImportance(1)
+		save.SaveSecondaryStructure()
+		setAllLoops()
+		local ssc = score()
+		for l = minLength, maxLength do
+			for s = 1, l + 1 do
+				local sp = score()
+				freezeT(s, l)
+				recentbest.Restore()
+				wiggle(s, l, minppi)
+				save.Quicksave(3)
+			end
+		end
+		save.LoadSecondaryStructure()
+	end
 
 	totalLwsInternal(1, 7, scoreThreshold)
-end -- function TotalLWS(scoreThreshold)
+end -- function theTotalLWS(scoreThreshold)
 
-function walker_1point1_fn()
+function theWalker()
+	-- Walker 1.1
 	bestScore = score()
 
 	function SelectSphere(sg, radius, nodeselect)
@@ -964,7 +960,7 @@ function walker_1point1_fn()
 		save.Quicksave(3)
 		behavior.SetClashImportance(1)
 
-		for l = minlen, maxlen do
+		for l = minLength, maxLength do
 			for i = startS, endS - l do
 				selection.DeselectAll()
 				selection.SelectRange(i, i + l - 1)
@@ -980,14 +976,14 @@ function walker_1point1_fn()
 	minppi = 0.0002
 	startS = 1
 	endS = nil
-	minlen = 1
-	maxlen = 9
+	minLength = 1
+	maxLength = 9
 	doWSW = true -- Set to true if it have to shake/wiggle sidechains too
 	shake = false
 	Walker()
-end -- function walker_1point1_fn()
+end -- function theWalker()
 
-function WormLWS(scoreThreshold)
+function theWormLWS(scoreThreshold)
 	function lw(minppi)
 		local gain = true
 		while gain do
@@ -1001,13 +997,13 @@ function WormLWS(scoreThreshold)
 				recentbest.Restore()
 			end
 		end
-	end
+	end -- theWormLWS(scoreThreshold)
 
 	function Worm()
 		if sEnd == nil then
 			sEnd = numSegments
 		end
-		AllLoop()
+		setAllLoops()
 		recentbest.Restore()
 		save.Quicksave(3)
 		local ss = score()
@@ -1056,13 +1052,23 @@ function cleanup(err)
 	print("****Total score change = ", currentScore - startingScore, "****")
 	deleteBands()
 	print(err)
+	-- ? REPLACE WITH:
+	-- creditbest.Restore()
+	-- save.LoadSecondaryStructure()
+	-- band.DeleteAll()
+	-- selection.DeselectAll()
 end
 
 function main()
+	timeStart = os.time()
+	print(os.date())
+	numSegments = structure.GetCount()
+	userBands = band.GetCount()
+	print(userBands..' user-supplied bands.\n ')
 	save.SaveSecondaryStructure()
 	behavior.SetClashImportance(1)
 	freeze.UnfreezeAll()
-	deleteBands()
+	--deleteBands()
 	selection.SelectAll()
 	structure.SetSecondaryStructureSelected('L')
 	selection.DeselectAll()
@@ -1076,92 +1082,92 @@ function main()
 		countCycles = countCycles + 1
 
 		timeCycleStart = os.time()
-		startWalker(countCycles, 1, 15, "SdHowMany", from, 2, to, 4)
-		SdHowMany(2,4)
+		startWalker(countCycles, 1, 15, "SD How Many", from, 2, to, 4)
+		theSDHowMany(2,4)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
-		startWalker(countCycles, 2, 15, "Pi Walker Campon V2")
-		PiWalkerCamponV2(0.0001)
+		startWalker(countCycles, 2, 15, "Pi Walker Campon 2")
+		thePiWalkerCampon2(0.0001)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
 		startWalker(countCycles, 3, 15, "Worm LWS")
-		WormLWS(0.0001)
+		theWormLWS(0.0001)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
-		startWalker(countCycles, 4, 15, "SdHowMany", from, 8, to, 25)
-		SdHowMany(8, 25)
+		startWalker(countCycles, 4, 15, "SD How Many", from, 8, to, 25)
+		theSDHowMany(8, 25)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
 		startWalker(countCycles, 5, 15, "Total LWS")
-		TotalLWS(0.0001)
+		theTotalLWS(0.0001)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
-		startWalker(countCycles, 6, 15, "M3 Wiggle sequence")
-		M3wiggleSequence(0.0001)
+		startWalker(countCycles, 6, 15, "M3 Wiggle Sequence")
+		theM3WiggleSequence(0.0001)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
-		startWalker(countCycles, 8, 15, "SdHowMany", from, 26, to, 32)
-		SdHowMany(26, 32)
+		startWalker(countCycles, 8, 15, "SD How Many", from, 26, to, 32)
+		theSDHowMany(26, 32)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
-		startWalker(countCycles, 9, 15, "Power_Walker_fn")
-		Power_Walker_fn()
+		startWalker(countCycles, 9, 15, "Power Walker")
+		thePowerWalker()
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
 		startWalker(countCycles, 11, 15, "Precise LWS")
-		Precise_LWS_fn()
+		thePreciseLWS()
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
-		startWalker(countCycles, 12, 15, "SdHowMany", from, 5, to, 7)
-		SdHowMany(5, 7)
+		startWalker(countCycles, 12, 15, "SD How Many", from, 5, to, 7)
+		theSDHowMany(5, 7)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
 		startWalker(countCycles, 13, 15, "Moon Walker")
-		MoonWalker(0.0001)
+		theMoonWalker(0.0001)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
 		startWalker(countCycles, 14, 15, "Stabilize 3.0.7")
-		Stabilize_fn()
+		theStabilize()
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
-		startWalker(countCycles, 15, 15, "Krog Walker V4")
-		krogWalker_v4(0.0001)
+		startWalker(countCycles, 15, 15, "Krog Walker 4")
+		theKrogWalker4(0.0001)
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
 		timeCycleStart = os.time()
 		startWalker(countCycles, 7, 15, "Walker 1.1")
-		walker_1point1_fn()
+		theWalker()
 		finishWalker()
-		printTime()
+		printElapsedTime()
 
-		timeCycleStart = timeStart
+		timeCycleStart = os.time()
 		print("****All walkers done ", countCycles, " times****", " (", os.date(), ")")
-		printTime()
+		printElapsedTime()
 		print("****Total score change so far = ", currentScore - startingScore, "****")
 	end
 end
