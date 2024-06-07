@@ -84,7 +84,7 @@ function theKrogWalker4(scoreThreshold)
 	runForever = false
 
 	function wiggleWalk(sectionSize, scoreThreshold, global)
-		totalGain = 0;
+		totalGain = 0
 		recentbest.Restore()
 		behavior.SetClashImportance(1)
 		selection.DeselectAll()
