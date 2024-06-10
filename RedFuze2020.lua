@@ -1,6 +1,5 @@
 scriptName = "RedFuze 2020 v1.0"
-buildNumber = 13
-
+buildNumber = 14
 function trunc(x)
 	return math.floor(x * 1000) / 1000
 end
@@ -123,10 +122,12 @@ function runCycle(currentRun)
 	else
 		behavior.SetClashImportance(0.70)
 	end
-	structure.ShakeSidechainsAll(shakeIterations)
+	if shakeIterations ~= 0 then
+			structure.ShakeSidechainsAll(shakeIterations)
+	end
 	calcGain()
 	print("Begin Wiggle:", trunc(currentScore), trunc(currentGain), trunc(totalGain))
-	structure.WiggleAll(2)
+	structure.WiggleAll(3)
 	behavior.SetClashImportance(1.00)
 	structure.WiggleAll(wiggleIterations)
 	calcGain()
@@ -144,10 +145,10 @@ function cleanup(errorMessage)
 			print("Error:")
 			print(errorMessage)
 		end
-	else
-		print("")
-		print("Done")
-		print("Final Score:", trunc(currentScore), trunc(totalGain))
+	--else
+		--print("")
+		--print("Done")
+		--print("Final Score:", trunc(currentScore), trunc(totalGain))
 	end
 	print("")
 	print("Cleaning up")
@@ -156,6 +157,9 @@ function cleanup(errorMessage)
 	else
 		save.Quickload(saveSlot)
 	end
+		print("Done")
+		calcGain()
+	print("Final Score:", trunc(currentScore), trunc(totalGain))
 	behavior.SetClashImportance(1.0)
 	selection.DeselectAll()
 	--band.EnableAll()
@@ -170,8 +174,8 @@ function main()
 	bestScore = startScore
 	totalGain = 0
 	currentCycle = 1
-	shakeIterations = 2
-	wiggleIterations = 10
+	shakeIterations = 4
+	wiggleIterations = 12
 
 	print(scriptName .. " build " .. buildNumber) -- for testing
 	print("Initial Score: " .. trunc(startScore))
