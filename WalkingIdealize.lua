@@ -5,7 +5,7 @@ interimScore = 0
 saveSlot = 11
 numSegments = structure.GetCount()
 iterations = 2
-idealizeSS = false -- TO DO: Make this a user option (that is, choose whether to idealize backbone or idealize peptide bonds, or both. Also, if both, the order of backbone and peptide options, and sequential or interlaced).
+idealizeSS = false -- TO DO: Make this a user option (that is, choose whether to idealize backbone or idealize peptide bonds, or both. Also, if both, select the start order (backbone or peptide), and idealize sequentially or interlaced).
 totalGain = 0
 
 function truncScore(x)
