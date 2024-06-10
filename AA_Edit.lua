@@ -66,66 +66,51 @@ AATYPE = 4
 -- Amino Acid names and abbeviations,
 -- Third element is mid-chain atom count
 AANames = {
-	a = { "alanine",        "a", 10, "P", },
-	c = { "cysteine",       "c", 11, "P", },
-	d = { "aspartate",      "d", 12, "P", },
-	e = { "glutamate",      "e", 15, "P", },
-	f = { "phenylalanine",  "f", 20, "P", },
-	g = { "glycine",        "g",  7, "P", },
-	h = { "histidine",      "h", 17, "P", },
-	i = { "isoleucine",     "i", 19, "P", },
-	k = { "lysine",         "k", 22, "P", },
-	l = { "leucine",        "l", 19, "P", },
-	m = { "methionine",     "m", 17, "P", },
-	n = { "asparagine",     "n", 14, "P", },
-	p = { "proline",        "p", 15, "P", },
-	q = { "glutamine",      "q", 17, "P", },
-	r = { "arginine",       "r", 24, "P", },
-	s = { "serine",         "s", 11, "P", },
-	t = { "threonine",      "t", 14, "P", },
-	v = { "valine",         "v", 16, "P", },
-	w = { "tryptophan",     "w", 24, "P", },
-	y = { "tyrosine",       "y", 21, "P", },
+	a = {"alanine", "a", 10, "P",},
+	c = {"cysteine", "c", 11, "P",},
+	d = {"aspartate", "d", 12, "P",},
+	e = {"glutamate", "e", 15, "P",},
+	f = {"phenylalanine", "f", 20, "P",},
+	g = {"glycine", "g",  7, "P",},
+	h = {"histidine", "h", 17, "P",},
+	i = {"isoleucine", "i", 19, "P",},
+	k = {"lysine", "k", 22, "P",},
+	l = {"leucine", "l", 19, "P",},
+	m = {"methionine", "m", 17, "P",},
+	n = {"asparagine", "n", 14, "P",},
+	p = {"proline", "p", 15, "P",},
+	q = {"glutamine", "q", 17, "P",},
+	r = {"arginine", "r", 24, "P",},
+	s = {"serine", "s", 11, "P",},
+	t = {"threonine", "t", 14, "P",},
+	v = {"valine", "v", 16, "P",},
+	w = {"tryptophan", "w", 24, "P",},
+	y = {"tyrosine", "y", 21, "P",},
 
 -- Bonus! codes for ligands ("x" is common, but "unk" is historic)
-	x   = { "ligand",       "x",  0, "M", },
-	unk = { "ligand",       "x",  0, "M", },
+	x   = {"ligand", "x",  0, "M",},
+	unk = {"ligand", "x",  0, "M",},
 
 -- Bonus!  RNA nucleotides
-	ra = { "adenine",       "a",  0, "R", },
-	rc = { "cytosine",      "c",  0, "R", },
-	rg = { "guanine",       "g",  0, "R", },
-	ru = { "uracil",        "u",  0, "R", },
+	ra = {"adenine", "a",  0, "R",},
+	rc = {"cytosine", "c",  0, "R",},
+	rg = {"guanine", "g",  0, "R",},
+	ru = {"uracil", "u",  0, "R",},
 
 -- Bonus!  DNA nucleotides (as seen in PDB, not confirmed for Foldit)
-	da = { "adenine",       "a",  0, "D", },
-	dc = { "cytosine",      "c",  0, "D", },
-	dg = { "guanine",       "g",  0, "D", },
-	dt = { "thymine",       "t",  0, "D", },
+	da = {"adenine", "a",  0, "D",},
+	dc = {"cytosine", "c",  0, "D",},
+	dg = {"guanine", "g",  0, "D",},
+	dt = {"thymine", "t",  0, "D",},
 }
 
 -- Modified AA if over this count
 AA_ATOM_MAX = 27
 
 -- Tables for converting external nucleobase codes to Foldit internal codes
-RNAin = {
-	a = "ra",
-	c = "rc",
-	g = "rg",
-	u = "ru",
-}
-DNAin = {
-	a = "da",
-	c = "dc",
-	g = "dg",
-	t = "dt",
-}
-Ctypes = {
-	P = "protein",
-	D = "DNA",
-	R = "RNA",
-	M = "ligand",
-}
+RNAin = {a = "ra", c = "rc", g = "rg", u = "ru",}
+DNAin = {a = "da", c = "dc", g = "dg", t = "dt",}
+Ctypes = {P = "protein", D = "DNA", R = "RNA", M = "ligand",}
 
 -- Common section used by all safe functions
 safefun = {}
@@ -135,7 +120,7 @@ safefun = {}
 	Any error that appears more than once gets tested here. First return codes may not be unique.
 ]]--
 
-safefun.CommonError = function ( errmsg )
+safefun.CommonError = function(errmsg)
 	local BADSEG = "Segment index out of bounds"
 	local ARGCNT = "Expected %d+ arguments."
 	local BADARG = "Bad argument #%d+ to '%?' (%b())"
@@ -145,37 +130,37 @@ safefun.CommonError = function ( errmsg )
 	local BADSYMM = "Symmetry index out of bounds"
 	local BADACID = "Invalid argument, unknown AA code"
 
-	local errp, errq = errmsg:find ( BADSEG )
+	local errp, errq = errmsg:find(BADSEG)
 	if errp ~= nil then
 		return -1, errmsg
 	end
 
 	-- "Bad Argument" messages include argument type errors and some types of argument value errors.
 	-- Trap only the argument type errors here
-	local errp, errq, errd = errmsg:find ( BADARG )
+	local errp, errq, errd = errmsg:find(BADARG)
 	if errp ~= nil then
-		local errp2 = errd:find ( EXPECT )
+		local errp2 = errd:find(EXPECT)
 		if errp2 ~= nil then
 			return -997, errmsg -- argument type error
 		end
 	end
-	local errp, errq = errmsg:find ( ARGCNT )
+	local errp, errq = errmsg:find(ARGCNT)
 	if errp ~= nil then
 		return -998, errmsg
 	end
-	local errp, errq = errmsg:find ( BADATOM )
+	local errp, errq = errmsg:find(BADATOM)
 	if errp ~= nil then
 		return -2, errmsg
 	end
-	local errp, errq = errmsg:find ( BADBAND )
+	local errp, errq = errmsg:find(BADBAND)
 	if errp ~= nil then
 		return -3, errmsg
 	end
-	local errp, errq = errmsg:find ( BADACID )
+	local errp, errq = errmsg:find(BADACID)
 	if errp ~= nil then
 		return -2, errmsg
 	end
-	local errp, errq = errmsg:find ( BADSYMM )
+	local errp, errq = errmsg:find(BADSYMM)
 	if errp ~= nil then
 		return -3, errmsg
 	end
@@ -384,36 +369,36 @@ protNfo = {
 
 function getChains()
 	--[[
-  getChains - Build a table of the chains found
+	getChains - Build a table of the chains found
 
-  Most Foldit puzzles contain only a single protein (peptide) chain. A few puzzles contain ligands, and some puzzles have had two
-  protein chains. Foldit puzzles may also contain RNA or DNA.
+	Most Foldit puzzles contain only a single protein (peptide) chain. A few puzzles contain ligands, and some puzzles have had two
+	protein chains. Foldit puzzles may also contain RNA or DNA.
 
-  For proteins, the atom count can be used to identify the first (N terminal) and last (C terminal) ends of the chain. The AANames table has the mid-chain atom counts for each amino acid.
+	For proteins, the atom count can be used to identify the first (N terminal) and last (C terminal) ends of the chain. The AANames table has the mid-chain atom counts for each amino acid.
 
-  Cysteine is a special case, since the presence of a disulfide bridge also changes the atom count.
+	Cysteine is a special case, since the presence of a disulfide bridge also changes the atom count.
 
-  For DNA and RNA, the beginning and end of the chain is determined by context at present. For example, if the previous segment was protein and this segment is DNA, it's the start of a chain.
+	For DNA and RNA, the beginning and end of the chain is determined by context at present. For example, if the previous segment was protein and this segment is DNA, it's the start of a chain.
 
-  Each ligand is treated as a chain of its own, with a length of 1.
+	Each ligand is treated as a chain of its own, with a length of 1.
 
-  CHAIN TABLE ENTRIES
-  -------------------
-  ctype - chain type - "P" for protein, "M" for ligand, "R" for RNA, "D" for DNA
-  fasta - FASTA-format sequence, single-letter codes (does not include FASTA header)
-  fastab - "backup" of fasta
-  start - Foldit segment number of sequence start
-  stop - Foldit segment number of sequence end
-  len - length of sequence
-  chainid - chain id assigned to entry, "A", "B", "C", and so on
-  mute - number of mutable segments
+	CHAIN TABLE ENTRIES
+	-------------------
+	ctype - chain type - "P" for protein, "M" for ligand, "R" for RNA, "D" for DNA
+	fasta - FASTA-format sequence, single-letter codes (does not include FASTA header)
+	fastab - "backup" of fasta
+	start - Foldit segment number of sequence start
+	stop - Foldit segment number of sequence end
+	len - length of sequence
+	chainid - chain id assigned to entry, "A", "B", "C", and so on
+	mute - number of mutable segments
 
-  For DNA and RNA, fasta and fastab contain single-letter codes, so "a" for adenine. The codes overlap the amino acid codes (for example, "a" for alanine). The DNA and RNA codes must be converted to the appropriate two-letter codes Foldit uses internally, for example "ra" for RNA adenine and "da" for DNA adenine.
+	For DNA and RNA, fasta and fastab contain single-letter codes, so "a" for adenine. The codes overlap the amino acid codes (for example, "a" for alanine). The DNA and RNA codes must be converted to the appropriate two-letter codes Foldit uses internally, for example "ra" for RNA adenine and "da" for DNA adenine.
 
-  We're assuming Foldit won't ever have more chains
+	We're assuming Foldit won't ever have more chains
 ]]--
 
-	local chainid = { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" }
+	local chainid = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
 	local chainz = {}
 	local chindx = 0
 	local curchn = nil
@@ -421,31 +406,31 @@ function getChains()
 	local segCnt = structure.GetCount()
 
 	for ii = 1, segCnt do
-		if protNfo.first [ ii ] then
+		if protNfo.first[ii] then
 			chindx = chindx + 1
-			chainz [ chindx ] = {}
-			curchn = chainz [ chindx ]
-			curchn.ctype = protNfo.ctype [ ii ]
+			chainz[chindx] = {}
+			curchn = chainz[chindx]
+			curchn.ctype = protNfo.ctype[ii]
 			curchn.fasta = ""
 			curchn.start = ii
-			curchn.chainid = chainid [ chindx ]
+			curchn.chainid = chainid[chindx]
 			curchn.mute = 0
 			curchn.len = 0
 		end
 
-		curchn.fasta = curchn.fasta .. protNfo.fastac [ ii ]
-		if protNfo.mute [ ii ] then
+		curchn.fasta = curchn.fasta .. protNfo.fastac[ii]
+		if protNfo.mute[ii] then
 			curchn.mute = curchn.mute + 1
 		end
 
-		if protNfo.last [ ii ] then
+		if protNfo.last[ii] then
 			curchn.stop = ii
-			curchn.len = curchn.stop - ( curchn.start - 1 )
+			curchn.len = curchn.stop -(curchn.start - 1)
 		end
 	end
 
 	for ii = 1, #chainz do
-		chainz [ ii ].fastab = chainz [ ii ].fasta
+		chainz[ii].fastab = chainz[ii].fasta
 	end
 	return chainz
 end
@@ -525,7 +510,7 @@ function GetParameters(chnz, peptides, gchn, minseg, maxseg, totlen, totmut)
 	dlog.chz  = dialog.AddLabel(#chnz .. " chains")
 	for ii = 1, #chnz do
 		local chain = chnz[ii]
-		dlog["chn" .. ii .. "l1"] = dialog.AddLabel("Chain " .. chain.chainid .. " ("	.. Ctypes [ chnz [ ii ].ctype ] .. ")")
+		dlog["chn" .. ii .. "l1"] = dialog.AddLabel("Chain " .. chain.chainid .. " ("	.. Ctypes[chnz[ii].ctype] .. ")")
 		dlog["chn" .. ii .. "l2"] = dialog.AddLabel ("Segments " .. chain.start ..	"-"	.. chain.stop .. ", mutables = " .. chain.mute ..	", length = "	.. chain.len)
 		dlog["chn" .. ii .. "ps"] = dialog.AddTextbox("Seq", chain.fasta)
 	end
@@ -681,11 +666,11 @@ function cleanup(errmsg)
 	if errmsg == nil then
 		reason = "complete"
 	else
-		start, stop, line, msg = errmsg:find ( ":(%d+):%s()" )
+		start, stop, line, msg = errmsg:find(":(%d+):%s()")
 		if msg ~= nil then
-			errmsg = errmsg:sub ( msg, #errmsg )
+			errmsg = errmsg:sub(msg, #errmsg)
 		end
-		if errmsg:find ( "Cancelled" ) ~= nil then
+		if errmsg:find("Cancelled") ~= nil then
 			reason = "cancelled"
 		else
 			reason = "error"
@@ -701,7 +686,7 @@ function cleanup(errmsg)
 		print ("Error line: " .. line)
 		print ("Error: \"" .. errmsg .. "\"")
 	end
-	behavior.SetFiltersDisabled ( false )
+	behavior.SetFiltersDisabled(false)
 end
 
 xpcall(main, cleanup)
