@@ -1,4 +1,5 @@
-scriptName = "Cut & Wiggle 2.0 RC1"
+scriptName = "Cut & Wiggle"
+scriptVersion = 2.0
 buildNumber = 36
 
 function trunc(x)

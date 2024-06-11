@@ -1,4 +1,5 @@
-scriptName = "SD Multiwalk Forever 2.6.1"
+scriptName = "SD Multiwalk Forever"
+scriptVersion = 2.6.1
 buildNumber = 3
 
 --TO DO: Make each walker function user-selected. Toggle on/off any particular walker(s).
@@ -13,6 +14,7 @@ function trunc(x)
 end
 
 -- TO DO: Update and simplify this function to use current.GetEnergyScore()
+-- This method is only useful if the score < 0 or there are cutpoints.
 function score()
 	s = current.GetScore()
 		if s == 0 then
