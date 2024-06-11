@@ -1,5 +1,7 @@
-scriptName = "ListBonds 1.0"
-buildNumber = 2
+scriptName = "List Bonds"
+scriptVersion = 1.0
+scriptBuild = 2
+
 numSegments = structure.GetCount()
 
 function getBonds()
@@ -44,7 +46,7 @@ function cleanup(err)
 end
 
 function main()
-	print(scriptName, buildNumber)
+	print(scriptName, scriptBuild)
 	getBonds()
 	printBonds()
 end

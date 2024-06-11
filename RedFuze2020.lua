@@ -1,5 +1,7 @@
 scriptName = "RedFuze 2020 v1.0"
-buildNumber = 14
+scriptVersion = 1.0
+scriptBuild = 14
+
 function trunc(x)
 	return math.floor(x * 1000) / 1000
 end
@@ -69,7 +71,7 @@ function checkBands()
 end
 
 function dialogOptions()
-	optionsPopup = dialog.CreateDialog(scriptName .. "build" .. buildNumber)
+	optionsPopup = dialog.CreateDialog(scriptName .. "build" .. scriptBuild)
 	optionsPopup.shakeIterations = dialog.AddSlider("Shake Iterations: ", shakeIterations, 0, 99, 0)
 	optionsPopup.wiggleIterations = dialog.AddSlider("Wiggle Iterations: ", wiggleIterations, 1, 99, 0)
 	optionsPopup.useCreditBest = dialog.AddCheckbox("Use Credit Best", useCreditBest)
@@ -174,7 +176,7 @@ function main()
 	shakeIterations = 4
 	wiggleIterations = 12
 
-	print(scriptName .. " build " .. buildNumber) -- for testing
+	print(scriptName .. " build " .. scriptBuild) -- for testing
 	print("Initial Score: " .. trunc(startScore))
 	print("")
 

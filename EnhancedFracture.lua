@@ -1,7 +1,6 @@
-scriptName = "Enchanced Fracture 1.0"
-buildNumber = 123
-
-debugOutput = false
+scriptName = "Enchanced Fracture"
+scriptVersion = 1.0
+scriptBuild = 123
 
 function trunc(x)
 	return math.floor(x * 1000) / 1000
@@ -453,7 +452,7 @@ function dialogPreset()
 	if rebuildIterations == nil then
 		rebuildIterations = 5
 	end
-	opt = dialog.CreateDialog(scriptName .. " build " .. buildNumber)
+	opt = dialog.CreateDialog(scriptName .. " build " .. scriptBuild)
 	opt.doCustom = dialog.AddCheckbox("Custom", false)
 	opt.labelPresets = dialog.AddLabel("Presets:")
 	opt.maxCI = dialog.AddSlider("Maximum CI:", maxCI, 0.1, 1, 2)
@@ -2680,10 +2679,6 @@ function performDeepRebuild()
 
 				rebuildSegment = grid[j][2]
 
-				if debugOutput == true then
-					print("rebuildSegment:", rebuildSegment)
-				end
-
 				if (rebuildSegment + (rebuildLength / 2)) < numSegments then
 					rebuildEnd = math.floor(rebuildSegment + (rebuildLength / 2))
 				else
@@ -2704,11 +2699,6 @@ function performDeepRebuild()
 					end
 				end
 
-				if debugOutput == true then
-					print("rebuildStart:", rebuildStart)
-					print("rebuildEnd:", rebuildEnd)
-				end
-
 				local selectionLength = (rebuildEnd - rebuildStart)
 				if selectionLength < rebuildLength - 1 then
 					if rebuildStart == 1 then
@@ -2722,11 +2712,6 @@ function performDeepRebuild()
 					elseif rebuildEnd == numSegments then
 						rebuildStart = rebuildStart + 1
 					end
-				end
-
-				if debugOutput == true then
-					print("rebuildStart:", rebuildStart)
-					print("rebuildEnd:", rebuildEnd)
 				end
 
 				-- duplicates of previous... not sure why
@@ -2745,11 +2730,6 @@ function performDeepRebuild()
 					end
 				end
 
-				if debugOutput == true then
-					print("rebuildStart:", rebuildStart)
-					print("rebuildEnd:", rebuildEnd)
-				end
-
 				local selectionLength = (rebuildEnd - rebuildStart)
 				if selectionLength < rebuildLength - 1 then
 					if rebuildStart == 1 then
@@ -2763,11 +2743,6 @@ function performDeepRebuild()
 					elseif rebuildEnd == numSegments then
 						rebuildStart = rebuildStart + 1
 					end
-				end
-
-				if debugOutput == true then
-					print("rebuildStart:", rebuildStart)
-					print("rebuildEnd:", rebuildEnd)
 				end
 
 				for x = rebuildStart, rebuildEnd do
@@ -3221,7 +3196,7 @@ function main()
 	checkLock()
 	allAlanine = checkAlanine()
 
-	print(scriptName, "build: " .. buildNumber)
+	print(scriptName, "build: " .. scriptBuild)
 	print("")
 
 	if lockd > numSegments - 1 then

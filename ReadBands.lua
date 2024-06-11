@@ -1,5 +1,6 @@
-scriptName = "Read Bands v1.0"
-buildNumber = 1
+scriptName = "Read Bands"
+scriptVersion = 1.0
+scriptBuild = 1
 numSegments = structure.GetCount()
 
 function readBands()
@@ -17,7 +18,7 @@ function cleanup(err)
 end
 
 function main()
-	print(scriptName, "build: " .. buildNumber)
+	print(scriptName, "build: " .. scriptBuild)
 	readBands()
 end
 

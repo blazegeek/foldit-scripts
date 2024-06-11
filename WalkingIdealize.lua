@@ -1,5 +1,7 @@
-scriptName = "Walking AutoIdealize v1.0 RC1"
-buildNumber = 1
+scriptName = "Walking AutoIdealize"
+scriptVersion = 1.0
+scriptBuild = 1
+
 currentBest = 0
 interimScore = 0
 saveSlot = 11
@@ -31,7 +33,7 @@ end
 ]]--
 
 function dialogOptions()
-	local dialogOptions = dialog.CreateDialog(scriptName .. " build " .. buildNumber)
+	local dialogOptions = dialog.CreateDialog(scriptName .. " build " .. scriptBuild)
 	dialogOptions.label1 = dialog.AddLabel("Number of Residues to Idealize Together")
 	dialogOptions.chunkSize = dialog.AddSlider("Size: ", chunkSize, 1, numSegments, 0)
 	dialogOptions.label2 = dialog.AddLabel("Select Idealization:")
