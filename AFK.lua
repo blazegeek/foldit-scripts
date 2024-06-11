@@ -1,556 +1,505 @@
---v 3.3 Extended sliders for Sketchbook (BK)
---v 3.4 Added AFK.BounceWiggle.Risky. When failed interations end, takes credidBest and starts again.
---		This shoul give a succession of "second best selection from all iterations" when MinGain is huge.
---		I think it should be good for end Sketchbook game
---		Added quick steps in cleanup for use of undos, deleted long lasting original cleanup (deselects & unfreezes)
---v 3.4.1 fixed an error (stopping after first gain) due to mispelling of save.Quicksave (not save.QuickSave)
---v 3.5 fixed the min ci to 0.10 and faster shake and mutate iterations (ZL7)
+scriptName = "AFK 3.5"
+scriptVersion = 3.5
+buildNumber = 2
+
+BestSlot = 98
+JumpSlot = 10
+JumpCredit = 50
+
+arraySelected = {}
+arrayFrozen = {}
+maxCycles = 1000
+minGain = 0
+doRisky = false
+doShake = false
+hasMutable = false
+doMutate = false
+skipCIMaximization = true
+isSketchbook = false
+
+numSegments = structure.GetCount()
+
+function cleanup(errorMessage)
+	behavior.SetClashImportance(originalCI)
+	recentbest.Restore()
+	selection.DeselectAll()
+end
 
 
---SLOTS
--- 98 = best score
--- 10-50 = jumps
--- 51-90 = creditbest scores
-BestSlot= 98
-JumpSlot=10
-JumpCredit=50
-
-
-
-AFK = {}
-AFK.BounceWiggle = {}
-AFK.Debug = {}
-AFK.Init = {}
-AFK.Init.IsSelected = {}
-AFK.Init.IsFrozen = {}
-AFK.BounceWiggle.DoShake = false
-AFK.IsMutable = false
-AFK.BounceWiggle.DoMutate = false
-AFK.BounceWiggle.Iterations = 1000
-AFK.BounceWiggle.MinGain = 0
-AFK.BounceWiggle.Risky = false
-AFK.BounceWiggle.SkipCIMaximization = true
-AFK.Debug.DoDebug=false
-SKETCHBOOK = false
-
-function detectfilterandmut() -- BK 13/2/2015
-	local descrTxt=puzzle.GetDescription()
-	local puzzletitle=puzzle.GetName()
-	if #descrTxt>0 and (descrTxt:find("Sketchbook") or descrTxt:find("Sketchbook")) then
-		SKETCHBOOK =true
+function detectFilters()
+	local puzzleDescription = puzzle.GetDescription()
+	local puzzleTitle = puzzle.GetName()
+	if #puzzleDescription > 0 and (puzzleDescription:find("Sketchbook") or puzzleDescription:find("Sketchbook")) then
+		isSketchbook = true
 	end
-	if #puzzletitle>0 and puzzletitle:find("Sketchbook") then -- new BK 17/6/2013
-		SKETCHBOOK =true
+	if #puzzleTitle > 0 and puzzleTitle:find("Sketchbook") then
+		isSketchbook = true
 	end
-	if #descrTxt>0 and (descrTxt:find("filter") or descrTxt:find("filters") or descrTxt:find("contact") or descrTxt:find("Contacts")) then
-		PROBABLEFILTER=true
-		FILTERMANAGE=true -- default yes during wiggle (will always be activate when scoring)
-		GENERICFILTER=false -- actually not recommended
+	--[[
+	if #puzzleDescription > 0 and (puzzleDescription:find("filter") or puzzleDescription:find("filters") or puzzleDescription:find("contact") or puzzleDescription:find("Contacts")) then
+		--probableFilter = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT
+		--filterManage = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT
+		--genericFilter = false -- NOT USED ANYWHERE ELSE IN THIS SCRIPT
 	end
-	if #descrTxt>0 and (descrTxt:find("design") or descrTxt:find("designs")) then
-		HASMUTABLE=true
-		IDEALCHECK=true
+	]]--
+	if #puzzleDescription > 0 and (puzzleDescription:find("design") or puzzleDescription:find("designs")) then
+		hasMutable = true
+		--idealCheck = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT (EXCEPT BELOW)
 	end
-	if #descrTxt>0 and (descrTxt:find("De-novo") or descrTxt:find("de-novo") or descrTxt:find("freestyle")
-		or descrTxt:find("prediction") or descrTxt:find("predictions")) then
-		IDEALCHECK=true
+	--[[
+	if #puzzleDescription > 0 and (puzzleDescription:find("De-novo") or puzzleDescription:find("de-novo") or puzzleDescription:find("freestyle")
+		or puzzleDescription:find("prediction") or puzzleDescription:find("predictions")) then
+		idealCheck = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT (EXCEPT ABOVE)
 	end
-
-	if #puzzletitle>0 then
-		if (puzzletitle:find("Sym") or puzzletitle:find("Symmetry") or puzzletitle:find("Symmetric")
-				or puzzletitle:find("Dimer") or puzzletitle:find("Trimer") or puzzletitle:find("Tetramer")
-				or puzzletitle:find("Pentamer")) then
-			PROBABLESYM=true
-			if puzzletitle:find("Dimer") and not puzzletitle:find("Dimer of Dimers") then sym=2
-			elseif puzzletitle:find("Trimer") or puzzletitle:find("Tetramer") then sym=3
-			elseif puzzletitle:find("Dimer of Dimers") or puzzletitle:find("Tetramer") then sym=4
-			elseif puzzletitle:find("Pentamer") then sym=5
-			else sym=6
+	]]--
+	--[[
+	if #puzzleTitle > 0 then
+		if (puzzleTitle:find("Sym") or puzzleTitle:find("Symmetry") or puzzleTitle:find("Symmetric") or puzzleTitle:find("Dimer") or puzzleTitle:find("Trimer") or puzzleTitle:find("Tetramer") or puzzleTitle:find("Pentamer")) then
+			probableSymmetry = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT (EXCEPT BELOW)
+			if puzzleTitle:find("Dimer") and not puzzleTitle:find("Dimer of Dimers") then
+				sym = 2
+			elseif puzzleTitle:find("Trimer") or puzzleTitle:find("Tetramer") then
+				sym = 3
+			elseif puzzleTitle:find("Dimer of Dimers") or puzzleTitle:find("Tetramer") then
+				sym = 4
+			elseif puzzleTitle:find("Pentamer") then
+				sym = 5
+			else
+				sym = 6
 			end
 		end
 	end
-	if #descrTxt>0 and (descrTxt:find("Sym") or descrTxt:find("Symmetry") or descrTxt:find("Symmetric")
-			or descrTxt:find("sym") or descrTxt:find("symmetry") or descrTxt:find("symmetric")) then
-		PROBABLESYM=true
-		if (descrTxt:find("Dimer") or descrTxt:find("dimer"))
-			and not (descrTxt:find("Dimer of Dimers") or descrTxt:find("dimer of dimers")) then sym=2
-		elseif descrTxt:find("Trimer") or descrTxt:find("trimer") then sym=3
-		elseif (descrTxt:find("Dimer of Dimers") or descrTxt:find("Tetramer"))
-			and not (descrTxt:find("dimer of dimers") or descrTxt:find("tetramer"))then sym=4
-		elseif descrTxt:find("Pentamer") or descrTxt:find("pentamer") then sym=5
+	]]--
+	--[[
+	if #puzzleDescription > 0 and (puzzleDescription:find("Sym") or puzzleDescription:find("Symmetry") or puzzleDescription:find("Symmetric") or puzzleDescription:find("sym") or puzzleDescription:find("symmetry") or puzzleDescription:find("symmetric")) then
+		probableSymmetry = true
+		if (puzzleDescription:find("Dimer") or puzzleDescription:find("dimer")) and not (puzzleDescription:find("Dimer of Dimers") or puzzleDescription:find("dimer of dimers")) then
+			sym = 2
+		elseif puzzleDescription:find("Trimer") or puzzleDescription:find("trimer") then
+			sym = 3
+		elseif (puzzleDescription:find("Dimer of Dimers") or puzzleDescription:find("Tetramer")) and not (puzzleDescription:find("dimer of dimers") or puzzleDescription:find("tetramer"))then
+			sym = 4
+		elseif puzzleDescription:find("Pentamer") or puzzleDescription:find("pentamer") then
+			sym = 5
 		end
 	end
-	--print resulting sym info
-	if PROBABLESYM then
+	]]--
+	--[[
+	if probableSymmetry then
 		print("Symmetric")
-		if sym==2 then
+		if sym == 2 then
 			print("Dimer")
-		elseif sym==3 then
+		elseif sym == 3 then
 			print("Trimer")
-		elseif sym==4 then
+		elseif sym == 4 then
 			print("Tetramer")
-		elseif sym==5 then
+		elseif sym == 5 then
 			print("Pentamer")
-		elseif sym>5 then
+		elseif sym > 5 then
 			print("Terrible polymer")
 		end
-	else print("Monomer")
+	else
+		print("Monomer")
 	end
-
-	if #puzzletitle>0 and puzzletitle:find("Sepsis") then -- new BK 17/6/2013
-		SEPSIS=true
-		--p(true,"-Sepsis")
+	]]--
+	--[[
+	if #puzzleTitle > 0 and puzzleTitle:find("Sepsis") then
+		isSepsis = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT
 		print("Sepsis")
 	end
-	if #puzzletitle>0 and puzzletitle:find("Electron Density") then -- for Electron Density
-		--p(true,"-Electron Density")
-		ELECTRON=true
+	if #puzzleTitle > 0 and puzzleTitle:find("Electron Density") then
+		isDensity = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT
 		print("Electron density")
 	end
-	if #puzzletitle>0 and puzzletitle:find("Centroid") then -- New BK 20/10/2013
-		--p(true,"-Centroid")
-		CENTROID=true
+	if #puzzleTitle > 0 and puzzleTitle:find("Centroid") then
+		isCentroid = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT
 		print("Centroid")
 	end
-	if #puzzletitle>0 and puzzletitle:find("Hotspot") then -- New BK 21/01/2014
-	HOTSPOT=true
-	print("Hotspot")
+	if #puzzleTitle>0 and puzzleTitle:find("Hotspot") then
+		isHotspot = true -- NOT USED ANYWHERE ELSE IN THIS SCRIPT
+		print("Hotspot")
 	end
-
-
-
+	]]--
 	return
 end
-detectfilterandmut()
 
+detectFilters()
 
+--[[
 if creditbest.GetScore() > current.GetScore() then
 	print("???????????")
 	print("WARNING not starting from creditbest score")
 	print("Risky endless on your own risk !")
 	print("???????????")
-
 end
+]]--
 
-AFK.CreateBounceWiggleStrategicDialog = function()
-
-    local currentDialog = dialog.CreateDialog("BounceWiggleStrategy")
-
-    currentDialog.sketchbooklabel = dialog.AddLabel("Sketchbook automatic")
-
-    currentDialog.BlankLabel1 = dialog.AddLabel("")
-
-    currentDialog.TwoMoves = dialog.AddButton("2 moves", 1)
-    currentDialog.TenMoves = dialog.AddButton("7 moves", 2)
+function dialogStrategic()
+	local currentDialog = dialog.CreateDialog("BounceWiggleStrategy")
+	currentDialog.sketchbooklabel = dialog.AddLabel("Sketchbook automatic")
+	currentDialog.labelBlank = dialog.AddLabel("")
+	currentDialog.TwoMoves = dialog.AddButton("2 moves", 1)
+	currentDialog.TenMoves = dialog.AddButton("7 moves", 2)
 	currentDialog.Custom = dialog.AddButton("Custom", 3)
-
-    currentDialog.CancelButton = dialog.AddButton("Cancel", 0)
-
-    local choice = dialog.Show(currentDialog)
-
-    return choice
+	currentDialog.buttonCancel = dialog.AddButton("Cancel", 0)
+	local choice = dialog.Show(currentDialog)
+	return choice
 end
 
+function dialogBounceWiggle()
+	for n = 1, numSegments() do
+		if structure.IsMutable(n) then
+			hasMutable = true
+		end
+		if selection.IsSelected(n) then
+			arraySelected[n] = true
+		else
+			arraySelected[n] = false
+		end
+		if freeze.IsFrozen(n) then
+			arrayFrozen[n] = true
+		else
+			arrayFrozen[n] = false
+		end
+	end
 
-AFK.CreateBounceWiggleDialog = function()
-    for n=1,structure.GetCount() do
-        if(structure.IsMutable(n)) then
-            AFK.IsMutable = true
-        end
-        if(selection.IsSelected(n)) then
-            AFK.Init.IsSelected[n] = true
-        else
-            AFK.Init.IsSelected[n] = false
-        end
-        if(freeze.IsFrozen(n)) then
-            AFK.Init.IsFrozen[n] = true
-        else
-            AFK.Init.IsFrozen[n] = false
-        end
-    end
+	local currentDialog = dialog.CreateDialog("BounceWiggle")
+	currentDialog.labelIterations = dialog.AddLabel("Failed Iterations before ending")
+	currentDialog.maxCycles = dialog.AddSlider("Failure Iterations", maxCycles, 0, 1000, 0)
+	currentDialog.labelBlank = dialog.AddLabel("")
+	currentDialog.labelDiscard = dialog.AddLabel("(Sketchbook) Discard gains less than")
+	currentDialog.minGain = dialog.AddSlider("Discard <", minGain, 0, 500, 2)
+	currentDialog.doRisky = dialog.AddCheckbox("Risky endless using CreditBest", doRisky)
+	currentDialog.labelBlank2 = dialog.AddLabel("")
+	currentDialog.skipCIMaximization = dialog.AddCheckbox("Skip CI=1 Maximization", skipCIMaximization)
+	currentDialog.buttonNoShake = dialog.AddButton("No Shake", 1)
+	currentDialog.buttonShake = dialog.AddButton("Shake", 2)
+	if (hasMutable) then
+		currentDialog.buttonMutate = dialog.AddButton("Mutate", 3)
+	end
+	currentDialog.buttonCancel = dialog.AddButton("Cancel", 0)
 
-    local currentDialog = dialog.CreateDialog("BounceWiggle")
-    currentDialog.IterationsLabel = dialog.AddLabel("Failed Iterations before ending")
-    currentDialog.IterationsSlider = dialog.AddSlider("Failure Iterations", AFK.BounceWiggle.Iterations, 0, 1000, 0)
+	local choice = dialog.Show(currentDialog)
 
-    currentDialog.BlankLabel1 = dialog.AddLabel("")
-    currentDialog.DiscardLabel = dialog.AddLabel("(Sketchbook) Discard gains less than")
-    currentDialog.DiscardSlider = dialog.AddSlider("Discard <", AFK.BounceWiggle.MinGain, 0, 500, 2)
-    currentDialog.Risky = dialog.AddCheckbox("Risky endless using CreditBest", AFK.BounceWiggle.Risky)
+	maxCycles = currentDialog.maxCycles.value
+	minGain = currentDialog.minGain.value
+	doRisky = currentDialog.doRisky.value
+	skipCIMaximization = currentDialog.skipCIMaximization.value
+	if maxCycles < 1 then
+		maxCycles = -1 -- WHY?????
+	end
+	cyclesReset = maxCycles -- init if further rounds needed
 
-    currentDialog.BlankLabel2 = dialog.AddLabel("")
-    currentDialog.SkipMaximization = dialog.AddCheckbox("Skip CI=1 Maximization", AFK.BounceWiggle.SkipCIMaximization)
+	if choice > 2 then
+		print("AFK3(BounceWiggleMutate) started. " .. maxCycles .. " failed Iterations before ending")
+		doMutate = true
+	elseif choice > 1 then
+		print("AFK3(BounceWiggleShake) started. " .. maxCycles .. " failed Iterations before ending")
+		doShake = true
+	elseif choice > 0 then
+		print("AFK3(BounceWiggleNoShake) started. " .. maxCycles .. " failed Iterations before ending")
+	else
+		print("Dialog cancelled")
+	end
 
-    currentDialog.NoShakeButton = dialog.AddButton("No Shake", 1)
-    currentDialog.ShakeButton = dialog.AddButton("Shake", 2)
-    if(AFK.IsMutable) then
-        currentDialog.MutateButton = dialog.AddButton("Mutate", 3)
-    end
-    currentDialog.CancelButton = dialog.AddButton("Cancel", 0)
-
-    local choice = dialog.Show(currentDialog)
-
-    AFK.BounceWiggle.Iterations = currentDialog.IterationsSlider.value
-    AFK.BounceWiggle.MinGain = currentDialog.DiscardSlider.value
-	AFK.BounceWiggle.Risky = currentDialog.Risky.value
-    AFK.BounceWiggle.SkipCIMaximization = currentDialog.SkipMaximization.value
-
-    if(AFK.BounceWiggle.Iterations < 1) then
-        AFK.BounceWiggle.Iterations = -1
-    end
-
-	AFK.BounceWiggle.IterationsReset = AFK.BounceWiggle.Iterations -- init if further rounds needed
-
-    if (choice > 2) then
-        print("AFK3(BounceWiggleMutate) started. "..AFK.BounceWiggle.Iterations.." Failed Iterations before ending")
-        AFK.BounceWiggle.DoMutate = true
-    elseif (choice > 1) then
-        print("AFK3(BounceWiggleShake) started. "..AFK.BounceWiggle.Iterations.." Failed Iterations before ending")
-        AFK.BounceWiggle.DoShake = true
-    elseif (choice > 0) then
-        print("AFK3(BounceWiggleNoShake) started. "..AFK.BounceWiggle.Iterations.." Failed Iterations before ending")
-    else
-        print("Dialog cancelled")
-    end
-    return choice
+	return choice
 end
 
-AFK.BounceWiggle.Init = function()
--- dialog stuff
-    local choice = 3 -- default to normal dialog
-
-	if SKETCHBOOK then -- sketchbook dialog choices 1 or 2
-		choice = AFK.CreateBounceWiggleStrategicDialog()
+function initBounceWiggle()
+	local choice = 3 -- default to normal dialog
+	if isSketchbook == true then -- sketchbook dialog choices 1 or 2
+		choice = dialogStrategic()
+	end
+	if choice < 1 then
+		return
+	elseif choice < 2 then -- 2 moves
+		doShake = false
+		doMutate = false
+		maxCycles = 1000
+		minGain = 500
+		doRisky = false
+	elseif choice < 3 then -- 7 moves
+		doShake = true
+		if hasMutable then
+			doMutate = true
+		end
+		maxCycles = 100
+		minGain = 500
+		doRisky = true
+	elseif choice < 4 then -- custom (normal dialog)
+		choice = dialogBounceWiggle() -- normal dialog
+		if choice < 1 then
+			return
+		end
 	end
 
-	if(choice < 1) then return -- stops the recipe
+	cyclesReset = maxCycles -- init if further rounds needed
+	local currentScore = startScore
+	local tempScore = currentScore
+	local tempScore2 = tempScore
+	save.Quicksave(BestSlot)
+	recentbest.Save()
+	behavior.SetClashImportance(1)
+	local init = true
 
-	elseif choice <2 then -- 2 moves
-		AFK.BounceWiggle.DoShake = false
-		AFK.BounceWiggle.DoMutate = false
-		AFK.BounceWiggle.Iterations = 1000
-		AFK.BounceWiggle.MinGain = 500
-		AFK.BounceWiggle.Risky = false
-	elseif choice <3 then -- 7 moves
-		AFK.BounceWiggle.DoShake = true
-		if HASMUTABLE then AFK.BounceWiggle.DoMutate = true end
-		AFK.BounceWiggle.Iterations = 100
-		AFK.BounceWiggle.MinGain = 500
-		AFK.BounceWiggle.Risky = true
-	elseif choice <4 then -- custom (normal dialog)
-		choice = AFK.CreateBounceWiggleDialog() -- normal dialog
-		if(choice < 1) then return end
-	end
--- end dialog stuff
-
-	AFK.BounceWiggle.IterationsReset = AFK.BounceWiggle.Iterations -- init if further rounds needed
-
-    local currentScore = AFK.StartScore
-    local tempScore = currentScore
-    local tempScore2 = tempScore
-    save.Quicksave(BestSlot)
-    recentbest.Save()
-    behavior.SetClashImportance(1)
-
-    local init = true
-    if(AFK.BounceWiggle.SkipCIMaximization == false) then
-        print("Maximizing Wiggle Score at Clashing Impotance = 1. Please wait.")
-        while(current.GetEnergyScore() > currentScore or init == true) do
-            init = false
-            currentScore = current.GetEnergyScore()
-            tempScore = currentScore
-            tempScore2 = tempScore
-
-            selection.SelectAll()
-            structure.WiggleAll(25)
-            recentbest.Restore()
-            tempScore = current.GetEnergyScore()
-            if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-                save.Quicksave(BestSlot)
-                tempScore2 = tempScore
-            else
-                save.Quickload(BestSlot)
-                tempScore = current.GetEnergyScore()
-            end
-
-            structure.LocalWiggleAll(25)
-            recentbest.Restore()
-            tempScore = current.GetEnergyScore()
-            if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-                save.Quicksave(BestSlot)
-                tempScore2 = tempScore
-            else
-                save.Quickload(BestSlot)
-                tempScore = current.GetEnergyScore()
-            end
-
-            structure.WiggleSelected(25)
-            recentbest.Restore()
-            tempScore = current.GetEnergyScore()
-            if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-                save.Quicksave(BestSlot)
-                tempScore2 = tempScore
-            else
-                save.Quickload(BestSlot)
-                tempScore = current.GetEnergyScore()
-            end
-
-            structure.LocalWiggleSelected(25)
-            recentbest.Restore()
-            tempScore = current.GetEnergyScore()
-            if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-                save.Quicksave(BestSlot)
-                tempScore2 = tempScore
-            else
-                save.Quickload(BestSlot)
-                tempScore = current.GetEnergyScore()
-            end
-        end
-        currentScore = current.GetEnergyScore()
-    end
-
-    if(currentScore > AFK.StartScore)then
-        print ("script started: + "..(currentScore - AFK.StartScore).." -- "..currentScore)
-    else
-        print("script started: "..currentScore)
-    end
-
-    init = true
-    while(init == true or AFK.BounceWiggle.Iterations > 0 or AFK.BounceWiggle.Iterations < 0) do
-        init = false
-        currentScore = current.GetEnergyScore()
-        if(AFK.Debug.DoDebug == true) then
-            print("Debug")
-        end
-        AFK.BounceWiggle.Run()
-
-        if(current.GetEnergyScore() > currentScore + AFK.BounceWiggle.MinGain)then
-            print (AFK.BounceWiggle.Iterations..": + "..(current.GetEnergyScore() - currentScore).." -- "..current.GetEnergyScore())
-			JumpSlot=JumpSlot+1
-			if(AFK.Debug.DoDebug == true) then
-                --print ("CI("..ci..") "..co.."("..ce..") ".." CI(1) "..ca.."("..cu..") ")
-				print ("JumpSlot ("..JumpSlot..") ")
-            end
-			if JumpSlot>50 then JumpSlot=10 end
-			save.Quicksave(JumpSlot)
-            if(AFK.BounceWiggle.Iterations > 0) then
-                AFK.BounceWiggle.Iterations = AFK.BounceWiggle.Iterations + 1
-            end
-			if(AFK.Debug.DoDebug == true) then
-                --print ("CI("..ci..") "..co.."("..ce..") ".." CI(1) "..ca.."("..cu..") ")
-				print ("Iterations("..AFK.BounceWiggle.Iterations..") ")
-            end
-        else
-            if(AFK.Debug.DoDebug == true) then
-                --print ("CI("..ci..") "..co.."("..ce..") ".." CI(1) "..ca.."("..cu..") ")
-				print ("Iterations("..AFK.BounceWiggle.Iterations..") ")
-            end
-
-			if (AFK.BounceWiggle.Iterations == 25) or (AFK.BounceWiggle.Iterations == 50) or (AFK.BounceWiggle.Iterations == 100)
-				or (AFK.BounceWiggle.Iterations == 200) or (AFK.BounceWiggle.Iterations == 400) then
-				print (AFK.BounceWiggle.Iterations.." --  (creditbest= ".. creditbest.GetScore()..")")
+	if skipCIMaximization == false then
+		print("Maximizing Wiggle Score at Clashing Impotance = 1. Please wait.")
+		while current.GetEnergyScore() > currentScore or init == true do
+			init = false
+			currentScore = current.GetEnergyScore()
+			tempScore = currentScore
+			tempScore2 = tempScore
+			selection.SelectAll()
+			structure.WiggleAll(25)
+			recentbest.Restore()
+			tempScore = current.GetEnergyScore()
+			if tempScore > (tempScore2 + minGain) then
+				save.Quicksave(BestSlot)
+				tempScore2 = tempScore
+			else
+				save.Quickload(BestSlot)
+				tempScore = current.GetEnergyScore()
 			end
+			structure.LocalWiggleAll(25)
+			recentbest.Restore()
+			tempScore = current.GetEnergyScore()
+			if tempScore > (tempScore2 + minGain) then
+				save.Quicksave(BestSlot)
+				tempScore2 = tempScore
+			else
+				save.Quickload(BestSlot)
+				tempScore = current.GetEnergyScore()
+			end
+			structure.WiggleSelected(25)
+			recentbest.Restore()
+			tempScore = current.GetEnergyScore()
+			if tempScore > (tempScore2 + minGain) then
+				save.Quicksave(BestSlot)
+				tempScore2 = tempScore
+			else
+				save.Quickload(BestSlot)
+				tempScore = current.GetEnergyScore()
+			end
+			structure.LocalWiggleSelected(25)
+			recentbest.Restore()
+			tempScore = current.GetEnergyScore()
+			if tempScore > (tempScore2 + minGain) then
+				save.Quicksave(BestSlot)
+				tempScore2 = tempScore
+			else
+				save.Quickload(BestSlot)
+				tempScore = current.GetEnergyScore()
+			end
+		end
+		currentScore = current.GetEnergyScore()
+	end
 
-        end
+	if currentScore > startScore then
+		print("Script started: + " .. (currentScore - startScore) .. " -- " .. currentScore)
+	else
+		print("Script started: " .. currentScore)
+	end
 
-        if(AFK.BounceWiggle.Iterations > 0) then AFK.BounceWiggle.Iterations = AFK.BounceWiggle.Iterations - 1 end
+	init = true
 
-		if AFK.BounceWiggle.Risky and (AFK.BounceWiggle.Iterations == 1) then
-			AFK.BounceWiggle.Iterations = AFK.BounceWiggle.IterationsReset
-			print("Starting over with creditbest scoring",creditbest.GetScore())
+	while init == true or maxCycles > 0 or maxCycles < 0 do
+		init = false
+		currentScore = current.GetEnergyScore()
+		runBounceWiggle()
+		if current.GetEnergyScore() > (currentScore + minGain) then
+			print(maxCycles .. ": + " .. (current.GetEnergyScore() - currentScore) .. " -- " .. current.GetEnergyScore())
+			JumpSlot = JumpSlot + 1
+			if JumpSlot > 50 then
+				JumpSlot = 10
+			end
+			save.Quicksave(JumpSlot)
+			if maxCycles > 0 then
+				maxCycles = maxCycles + 1
+			end
+		else
+			print(maxCycles .. ": No gain -- " .. current.GetEnergyScore())
+			--if maxCycles == 25 or maxCycles == 50 or maxCycles == 100 or maxCycles == 200 or maxCycles == 400 then
+				--print(maxCycles .. " -- (Credit Best Score: " .. creditbest.GetScore() .. ")")
+			--end
+		end
+
+		if maxCycles > 0 then
+			maxCycles = maxCycles - 1
+		end
+
+		if doRisky and maxCycles == 1 then
+			maxCycles = cyclesReset
+			print("Starting over with Credit Best score: " .. creditbest.GetScore())
 			creditbest.Restore()
-			JumpCredit=JumpCredit+1
-			if JumpCredit>90 then JumpCredit=51 end
+			JumpCredit = JumpCredit + 1
+			if JumpCredit > 90 then
+				JumpCredit = 51
+			end
 			save.Quicksave(JumpCredit)
 		end
+	end
 
+	init = true
 
+	currentScore = current.GetEnergyScore()
 
-    end
+	if skipCIMaximization == false then
+		print("Maximizing Wiggle Score at Clashing Impotance = 1. Please wait.")
+		while current.GetEnergyScore() > currentScore or init == true do
+			init = false
+			currentScore = current.GetEnergyScore()
+			tempScore = currentScore
+			tempScore2 = tempScore
+			selection.SelectAll()
+			structure.WiggleAll(25)
+			recentbest.Restore()
+			tempScore = current.GetEnergyScore()
+			if tempScore > (tempScore2 + minGain) then
+				save.Quicksave(BestSlot)
+				tempScore2 = tempScore
+			else
+				save.Quickload(BestSlot)
+				tempScore = current.GetEnergyScore()
+			end
+			structure.LocalWiggleAll(25)
+			recentbest.Restore()
+			tempScore = current.GetEnergyScore()
+			if tempScore > (tempScore2 + minGain) then
+				save.Quicksave(BestSlot)
+				tempScore2 = tempScore
+			else
+				save.Quickload(BestSlot)
+				tempScore = current.GetEnergyScore()
+			end
+			structure.WiggleSelected(25)
+			recentbest.Restore()
+			tempScore = current.GetEnergyScore()
+			if tempScore > (tempScore2 + minGain) then
+				save.Quicksave(BestSlot)
+				tempScore2 = tempScore
+			else
+				save.Quickload(BestSlot)
+				tempScore = current.GetEnergyScore()
+			end
+			structure.LocalWiggleSelected(25)
+			recentbest.Restore()
+			tempScore = current.GetEnergyScore()
+			if tempScore > (tempScore2 + minGain) then
+				save.Quicksave(BestSlot)
+				tempScore2 = tempScore
+			else
+				save.Quickload(BestSlot)
+				tempScore = current.GetEnergyScore()
+			end
+		end
+	end
 
-    init = true
-    currentScore = current.GetEnergyScore()
-    if(AFK.BounceWiggle.SkipCIMaximization == false) then
-        print("Maximizing Wiggle Score at Clashing Impotance = 1. Please wait.")
-        while(current.GetEnergyScore() > currentScore or init == true) do
-            init = false
-            currentScore = current.GetEnergyScore()
-            tempScore = currentScore
-            tempScore2 = tempScore
+	if current.GetEnergyScore() > currentScore then
+		print("Script complete: +" .. (current.GetEnergyScore() - startScore) .. " -- " .. current.GetEnergyScore())
+	else
+		print("Script complete: " .. current.GetEnergyScore())
+	end
+	cleanup()
+end -- END: function initBounceWiggle()
 
-            selection.SelectAll()
-            structure.WiggleAll(25)
-            recentbest.Restore()
-            tempScore = current.GetEnergyScore()
-            if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-                save.Quicksave(BestSlot)
-                tempScore2 = tempScore
-            else
-                save.Quickload(BestSlot)
-                tempScore = current.GetEnergyScore()
-            end
-
-            structure.LocalWiggleAll(25)
-            recentbest.Restore()
-            tempScore = current.GetEnergyScore()
-            if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-                save.Quicksave(BestSlot)
-                tempScore2 = tempScore
-            else
-                save.Quickload(BestSlot)
-                tempScore = current.GetEnergyScore()
-            end
-
-            structure.WiggleSelected(25)
-            recentbest.Restore()
-            tempScore = current.GetEnergyScore()
-            if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-                save.Quicksave(BestSlot)
-                tempScore2 = tempScore
-            else
-                save.Quickload(BestSlot)
-                tempScore = current.GetEnergyScore()
-            end
-
-            structure.LocalWiggleSelected(25)
-            recentbest.Restore()
-            tempScore = current.GetEnergyScore()
-            if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-                save.Quicksave(BestSlot)
-                tempScore2 = tempScore
-            else
-                save.Quickload(BestSlot)
-                tempScore = current.GetEnergyScore()
-            end
-        end
-    end
-    if(current.GetEnergyScore() > currentScore)then
-        print ("script complete: + "..(current.GetEnergyScore() - AFK.StartScore).." -- "..current.GetEnergyScore())
-    else
-        print("script complete:"..current.GetEnergyScore())
-    end
-    AFK.Cleanup()
-end
-
-AFK.BounceWiggle.Run = function()
-    local currentScore = current.GetEnergyScore()
-    local tempScore = currentScore
-    local tempScore2 = tempScore
-    save.Quicksave(BestSlot)
-
-    --truly random numbers are not required
-    local wiggle1Type = math.random(1,4)
+function runBounceWiggle()
+	local currentScore = current.GetEnergyScore()
+	local tempScore = currentScore
+	local tempScore2 = tempScore
+	save.Quicksave(BestSlot)
+	--truly random numbers are not required
+	local wiggle1Type = math.random(1, 4)
 	local wiggle1Iterations = math.random(1, 3)
 	local wiggle1CI = math.random(1, 1000) / 1000
-	if(wiggle1CI < 0.10) then
+	if wiggle1CI < 0.10 then
 		wiggle1CI = 0.10
 		behavior.SetClashImportance(wiggle1CI)
+	else
+		behavior.SetClashImportance(wiggle1CI)
+	end
+	local wiggle2Type = math.random(1, 4)
+	behavior.SetClashImportance(wiggle1CI)
+
+	if wiggle1Type > 3 then
+		structure.LocalWiggleSelected(wiggle1Iterations)
+		--wiggle1Type = "LocalWiggleSelected"
+	elseif wiggle1Type > 2  then
+		structure.WiggleSelected(wiggle1Iterations)
+		--wiggle1Type = "LocalWiggleSelected"
+	elseif wiggle1Type > 1 then
+		structure.LocalWiggleAll(wiggle1Iterations)
+		--wiggle1Type = "LocalWiggleSelected"
+	else
+		structure.WiggleAll(wiggle1Iterations)
+		--wiggle1Type = "LocalWiggleSelected"
+	end
+
+	if doShake == true or doMutate == true then
+		local shakeType = math.random(1, 3)
+		local shakeIterations
+		if numSegments <= 100 then
+			shakeIterations = 4
+		elseif numSegments <= 200 then
+			shakeIterations = 2
 		else
-        behavior.SetClashImportance(wiggle1CI)
+			shakeIterations = 1
 		end
-    local wiggle2Type = math.random(1,4)
-    if(AFK.Debug.DoDebug == true) then
-        print("wiggle1Type "..wiggle1Type)
-        print("wiggle1Iterations "..wiggle1Iterations)
-        print("wiggle1CI "..wiggle1CI)
-        print("wiggle2Type "..wiggle2Type)
-    end
-
-    behavior.SetClashImportance(wiggle1CI)
-
-    if(wiggle1Type > 3) then
-        structure.LocalWiggleSelected(wiggle1Iterations)
-        --wiggle1Type = "LocalWiggleSelected"
-    elseif(wiggle1Type > 2) then
-        structure.WiggleSelected(wiggle1Iterations)
-        --wiggle1Type = "LocalWiggleSelected"
-    elseif(wiggle1Type > 1) then
-        structure.LocalWiggleAll(wiggle1Iterations)
-        --wiggle1Type = "LocalWiggleSelected"
-    else
-        structure.WiggleAll(wiggle1Iterations)
-        --wiggle1Type = "LocalWiggleSelected"
-    end
-
-    if(AFK.BounceWiggle.DoShake == true or AFK.BounceWiggle.DoMutate == true) then
-        local shakeType = math.random(1,3)
-        local shakeIterations = 4
 		local muIterations = 2
-        local shakeCI = math.random(1, 1000) / 1000
-		if(shakeCI < 0.10) then
-		shakeCI = 0.10
-		behavior.SetClashImportance(shakeCI)
+		local shakeCI = math.random(1, 1000) / 1000
+		if shakeCI < 0.10 then
+			shakeCI = 0.10
+			behavior.SetClashImportance(shakeCI)
 		else
-        behavior.SetClashImportance(shakeCI)
+			behavior.SetClashImportance(shakeCI)
 		end
 
-        if(AFK.Debug.DoDebug == true) then
-            print("shakeType "..shakeType)
-            print("shakeIterations "..shakeIterations)
-            print("shakeCI "..shakeCI)
-        end
-        if(shakeType > 1 and AFK.BounceWiggle.DoMutate == true) then
-            structure.MutateSidechainsAll(muIterations)
-        elseif(shakeType > 1) then
-            structure.ShakeSidechainsAll(shakeIterations)
-        else
-            selection.DeselectAll()
-            local shakeSelectionCount = math.random(1,structure.GetCount())
-            if(AFK.Debug.DoDebug == true) then
-                print("shakeSelectionCount "..shakeSelectionCount)
-            end
-            for n=1,shakeSelectionCount do
-                local selectSegment = math.random(1,structure.GetCount())
-                if(AFK.Debug.DoDebug == true) then
-                    print("selectSegment "..selectSegment)
-                end
-                selection.Select(selectSegment)
-            end
-            if(AFK.BounceWiggle.DoMutate == true) then
-                structure.MutateSidechainsSelected(muIterations)
-            else
-                structure.ShakeSidechainsSelected(shakeIterations)
-            end
+		if shakeType > 1 and doMutate == true then
+			structure.MutateSidechainsAll(muIterations)
+		elseif shakeType > 1 then
+			structure.ShakeSidechainsAll(shakeIterations)
+		else
+			selection.DeselectAll()
+			local shakeSelectionCount = math.random(1, numSegments())
+			for n = 1, shakeSelectionCount do
+				local selectSegment = math.random(1, numSegments())
+				selection.Select(selectSegment)
+			end
+			if doMutate == true then
+				structure.MutateSidechainsSelected(muIterations)
+			else
+				structure.ShakeSidechainsSelected(shakeIterations)
+			end
+			selection.SelectAll()
+		end
+	end
 
-            selection.SelectAll()
-        end
-    end
-    behavior.SetClashImportance(1)
-    if(AFK.Debug.DoDebug == true) then
-        print("wiggle2Type "..wiggle2Type)
-    end
+	behavior.SetClashImportance(1)
 
-    if(wiggle2Type > 3) then
-        structure.LocalWiggleSelected(25)
-        --wiggle2Type = "LocalWiggleSelected"
-    elseif(wiggle2Type > 2) then
-        structure.WiggleSelected(25)
-        --wiggle2Type = "WiggleSelected"
-    elseif(wiggle2Type > 1) then
-        structure.LocalWiggleAll(25)
-        --wiggle2Type = "LocalWiggleAll"
-    else
-        structure.WiggleAll(25)
-        --wiggle2Type = "WiggleAll"
-    end
+	if wiggle2Type > 3 then
+		structure.LocalWiggleSelected(25)
+		--wiggle2Type = "LocalWiggleSelected"
+	elseif wiggle2Type > 2 then
+		structure.WiggleSelected(25)
+		--wiggle2Type = "WiggleSelected"
+	elseif wiggle2Type > 1 then
+		structure.LocalWiggleAll(25)
+		--wiggle2Type = "LocalWiggleAll"
+	else
+		structure.WiggleAll(25)
+		--wiggle2Type = "WiggleAll"
+	end
+	recentbest.Restore()
+	tempScore = current.GetEnergyScore()
+	if tempScore > (tempScore2 + minGain) then
+		save.Quicksave(BestSlot)
+		tempScore2 = tempScore
+	else
+		save.Quickload(BestSlot)
+		tempScore = current.GetEnergyScore()
+	end
+end -- END: function runBounceWiggle()
 
-    recentbest.Restore()
-    tempScore = current.GetEnergyScore()
-    if(tempScore > (tempScore2 + AFK.BounceWiggle.MinGain)) then
-        save.Quicksave(BestSlot)
-        tempScore2 = tempScore
-    else
-        save.Quickload(BestSlot)
-        tempScore = current.GetEnergyScore()
-    end
-end
+startScore = current.GetEnergyScore()
+originalCI = behavior.GetClashImportance()
 
-AFK.StartScore = current.GetEnergyScore()
-AFK.StartCI = behavior.GetClashImportance()
-function AFK.Cleanup(errorMessage)
-    behavior.SetClashImportance(AFK.StartCI)
-    recentbest.Restore()
-    --selection.DeselectAll()
-end
-
-xpcall(AFK.BounceWiggle.Init, AFK.Cleanup)
+xpcall(initBounceWiggle, cleanup)
