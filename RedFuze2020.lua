@@ -104,7 +104,9 @@ function runCycle(currentRun)
 	end
 	calcGain()
 	print("Cycle " .. currentRun .. "/8")
-	print("Begin Shake:", trunc(currentScore), trunc(currentGain), trunc(totalGain))
+	if shakeIterations ~= 0 then
+		print("Begin Shake:", trunc(currentScore), trunc(currentGain), trunc(totalGain))
+	end
 	if currentRun == 1 then
 		behavior.SetClashImportance(0.03)
 	elseif currentRun == 2 then
@@ -138,17 +140,12 @@ end
 function cleanup(errorMessage)
 	if (errorMessage ~= nil) then
 		if string.find(errorMessage, "Cancelled") then
-			--print("")
 			print("Cancelled by user")
 		else
 			print("")
 			print("Error:")
 			print(errorMessage)
 		end
-	--else
-		--print("")
-		--print("Done")
-		--print("Final Score:", trunc(currentScore), trunc(totalGain))
 	end
 	print("")
 	print("Cleaning up")
@@ -194,10 +191,7 @@ function main()
 		runCycle(currentCycle)
 		currentCycle =  currentCycle + 1
 	until currentCycle > 8
-	--creditbest.Restore()
-	--band.DeleteAll()
 	calcGain()
-	--print("Final Score:", trunc(currentScore), trunc(totalGain))
 	cleanup()
 end
 
