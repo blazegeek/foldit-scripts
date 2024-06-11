@@ -1,3 +1,7 @@
+scriptName = "TvdL Walking Rebuild"
+scriptVersion = 1.6.2
+buildNumber = 1
+
 --[[
 
 Walking Rebuild V4 - Sphered
@@ -14,8 +18,6 @@ ver 1.6.2: Modified maximum rebuild length to actual number of segments, added s
 ]]--
 
 -- Handy shorts module
-scriptName = "TvdL Walking Rebuild v1.6.2"
-buildNumber = 1
 normal = (current.GetExplorationMultiplier() == 0)
 numSegments = structure.GetCount()
 
