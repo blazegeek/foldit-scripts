@@ -1367,7 +1367,11 @@ function sortFragmentScores() -- uses built-in table.sort (bubble sort?)
 	if #fragmentScores == 0 then
 		getFragmentScores(rebuildLength)
 	end
-	table.sort(fragmentScores, function(a, b) return a[1] < b[1] end)
+	if worstFirst == true then
+		table.sort(fragmentScores, function(a, b) return a[1] < b[1] end)
+	else
+		table.sort(fragmentScores, function(a, b) return a[1] > b[1] end)
+	end
 	return fragmentScores
 end
 
