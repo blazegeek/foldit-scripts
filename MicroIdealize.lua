@@ -1,320 +1,293 @@
-kOriginalStructureOrNewBest = 1   -- the starting structure, or any subsequent improvement, will be stored in this quicksave slot
-  best_score = 0
-  idealize_length = 3
-  min_residue = 1
-  max_residue = 999
-  worst_first = true
-  idealize_ss = true
-  use_local_wiggle = false
-  local_wiggle_spacer = 3
+scriptName = "MicroIdealize"
+scriptVersion = 5.0
+buildNumber = 5
 
+saveSlot = 11
+bestScore = 0
+fragmentLength = 6
+startFragmentLength = 6
+endFragmentLength = 3
+minResidue = 1
+maxResidue = 999
+doWorstFirst = true
+doIdealizeSS = true
+doIdealizeBoth = true
+doLocalWiggle = false
+localWiggleSpacer = 3
+scoreType = 1
+wiggleIterations = 12
+sphereSegments = {}
+sphereSegmentsRadius = 10
 
-  score_type = 1
-  kDefaultWiggle = 12
-  sphere = {}
-  kSphereRadius = 10
-
-  function r3 ( i )    -- printing convenience
-
-      return i - i % 0.001
-
-  end
-
-  function GetScore ()
-
-     if ( score_type == 1 ) then
-         score = current.GetEnergyScore ()
-     end
-
-     return score
-
-  end
-
-
-
- function SphereSelect ( start_idx , end_idx )
-
-     for i = 1 , n_residues do
-           sphere [ i ] = false
-     end
-
-     for  i = 1 , n_residues do
-          for j = start_idx , end_idx do
-             if ( structure.GetDistance ( i , j ) < kSphereRadius ) then
-               sphere [ i ] = true
-             end
-          end
-     end
-
-     selection.DeselectAll ()
-
-     for i = 1 , n_residues do
-            if ( sphere [ i ] == true ) then
-                     selection.Select ( i )
-             end
-     end
+function trunc(x)
+	return math.floor(x * 1000) / 1000
 end
 
-function GoSegment ( start_idx , end_idx )
-
-    save.Quickload ( kOriginalStructureOrNewBest )
-
-    if ( start_idx > 1 ) then
-        structure.InsertCut ( start_idx )
-    end
-
-    if ( end_idx < n_residues ) then
-        structure.InsertCut ( end_idx  )
-    end
-
-     selection.DeselectAll ()
-
-     selection.SelectRange ( start_idx , end_idx )
-     structure.IdealizeSelected ()
-
-     if ( idealize_ss == false ) then
-       structure.IdealizeSelected ()
-      else
-       structure.IdealSSSelected ()
-     end
-
-     if ( start_idx > 1 ) then
-        structure.DeleteCut ( start_idx )
-     end
-
-     if ( end_idx < n_residues ) then
-         structure.DeleteCut ( end_idx )
-     end
-
-     if ( use_local_wiggle == false ) then
-         SphereSelect ( start_idx , end_idx )
-         structure.WiggleSelected ( kDefaultWiggle )
-      else
-        selection.DeselectAll ()
-        selection.SelectRange ( math.max ( 1 , start_idx - local_wiggle_spacer ) , math.min ( end_idx + local_wiggle_spacer , n_residues ) )
-        structure.WiggleSelected ( kDefaultWiggle )
-     end
-
-
-     score = GetScore ()
-     if ( score > best_score ) then
-         best_score = score
-         print ( "Improvement to "..  r3 ( best_score )  )
-         save.Quicksave ( kOriginalStructureOrNewBest )
-     end
-
- end
-
- function Coprime ( n )
-
-     local primes = {2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101}
-
-     i = #primes   -- find the highest prime < 70% of the residue count and which is coprime with the number of residues
-
-     while ( i >= 1 ) do
-          if ( primes [ i ] < n*0.7 and n % primes [ i ]  ~= 0 ) then
-             return primes [ i ]
-          end
-
-          i = i - 1
-     end
-
-     return 1
-
- end
-
- function pseudorandom ( score )
-
- -- Returns a pseudorandom number >= 0 and < 1.
-
- -- Based on the fractional part of the  score
-
-     if ( score >= 0 ) then
-        return  score % 1
-      else
-        return (-score ) % 1
-     end
- end
-
-
- function Go ()
-
-    local inc
-
-    max_possible_residue = max_residue - idealize_length + 1
-    n_possible_segs = max_possible_residue - min_residue + 1
-    r = pseudorandom ( best_score )
-
-    start_idx = min_residue + n_possible_segs *  r
-    start_idx = start_idx - start_idx % 1
-    inc = Coprime ( n_possible_segs  )
-
-    for  i = 1 , n_possible_segs do
-        print ( start_idx .. "-" .. start_idx + idealize_length - 1 .. "  (" .. i .. "/" .. n_possible_segs .. ")" )
-        GoSegment ( start_idx , start_idx + idealize_length - 1 )        start_idx = start_idx + inc
-        if ( start_idx >  max_possible_residue ) then
-           start_idx =  start_idx - n_possible_segs
-        end
-    end
-
- end
-
- function ShellSort ( ids , sequence_scores , n )
-
-     -- Adapted from Numerical Recipes in C
-
-     local  inc = 1
-
-     repeat
-       inc = inc * 3 + 1
-     until inc > n
-
-     repeat
-        inc = inc / 3
-        inc = inc - inc % 1
-
-        for i = inc + 1 , n do
-            v = sequence_scores [ i ]
-            w = ids [  i ]
-            j = i
-
-            flag = false
-
-            while ( flag == false and sequence_scores [ j - inc ]  > v ) do
-               sequence_scores [ j ] = sequence_scores [ j - inc ]
-               ids [ j ] = ids [ j - inc ]
-               j = j - inc
-
-               if ( j <= inc ) then
-                   flag = true
-               end
-            end
-
-            sequence_scores [ j ] = v
-            ids [ j ] = w
-         end
-     until inc <= 1
-
+function round3(x)
+	return x - x % 0.001
 end
 
-function GoWorstFirst ()
-
-    ideality_scores = {}
-    sequence_scores = {}
-    ids = {}
-
-    max_possible_residue = max_residue - idealize_length + 1
-    n_possible_segs = max_possible_residue - min_residue + 1
-
-    for i = min_residue , max_residue do
-        ideality_scores [ i ] = current.GetSegmentEnergySubscore ( i , "ideality" )--print ( i .. "  " .. r3 ( ideality_scores [ i ] ) )
-    end
-
-    idx = 1
-
-    for i = min_residue , max_residue - idealize_length + 1 do
-
-        total = 0
-        for j = i , i + idealize_length - 1 do
-            total = total + ideality_scores [ j ]
-        end
-
-        sequence_scores [ idx ] = total
-        ids [ idx ] = i--print ( idx .. "  " .. ids [ idx ] .. "  " .. r3 ( sequence_scores [ idx ] ) )
-        idx = idx + 1
-     end
-
-     ShellSort ( ids , sequence_scores , max_possible_residue - min_residue + 1 )
-
-     for  i = 1 , n_possible_segs do --print ( i .. "  " .. ids [ i ] .. "  " .. r3 ( sequence_scores [ i ] ) )
-        print (  ids [ i ] .. "-" ..  ids [ i ] + idealize_length - 1 .. "  (" .. i .. "/" .. n_possible_segs .. ")" )
-        GoSegment ( ids [ i ] , ids [ i ]  + idealize_length - 1 )
-     end
- end
-
-
- function GetParameters ()
-
-     local dlog = dialog.CreateDialog ( "MicroIdealize 5.0" )
-     dlog.idealize_length = dialog.AddSlider ( "Idealize length" , idealize_length , 1 , 20 , 0 )
-     dlog.min_residue = dialog.AddSlider ( "Min residue" , min_residue , 1 , n_residues , 0 )
-     dlog.max_residue = dialog.AddSlider ( "Max residue" , max_residue , 1 , n_residues , 0 )
-     dlog.i_ss = dialog.AddCheckbox ( "Use IdealizeSS" , idealize_ss )
-     dlog.worst_first = dialog.AddCheckbox ( "Worst first" , worst_first )
-     dlog.use_local_wiggle = dialog.AddCheckbox ( "Local Wiggle" , use_local_wiggle  )
-
-     dlog.local_wiggle_spacer = dialog.AddSlider ( "Local wiggle spacer" , local_wiggle_spacer , 0 , 10 , 0 )
-
-     dlog.ok = dialog.AddButton ( "OK" , 1 )
-     dlog.cancel = dialog.AddButton ( "Cancel" , 0 )
-
-     if ( dialog.Show ( dlog ) > 0 ) then
-          idealize_length = dlog.idealize_length.value
-          min_residue = dlog.min_residue.value
-          max_residue = dlog.max_residue.value
-          idealize_ss = dlog.i_ss.value
-          worst_first  = dlog.worst_first.value
-          local_wiggle_spacer = dlog.local_wiggle_spacer.value
-          use_local_wiggle = dlog.use_local_wiggle.value
-
-          return true
-       else
-          return false
-      end
-
- end
-
- function main ()
-
-     print (  "MicroIdealize 5.0" )
-     save.Quicksave ( kOriginalStructureOrNewBest )
-
-     best_score = GetScore ()
-     print ( "Start score " .. r3 ( best_score ) )
-     n_residues = structure.GetCount ()
-
-         -- Trim off locked terminal sequences as a UI convenience
-
-     min_residue = 1
-     while ( ( structure.IsLocked ( min_residue ) == true ) and ( min_residue <= n_residues ) ) do
-       min_residue = min_residue + 1
-     end
-
-     max_residue = n_residues
-     while ( ( structure.IsLocked ( max_residue ) == true ) and ( max_residue >= 1 ) ) do
-       max_residue = max_residue - 1
-     end
-
-     if ( GetParameters () == false ) then
-        return                -- graceful exit
-     end
-
-     if ( score_type == 2 ) then
-        behavior.SetSlowFiltersDisabled ( true )
-     end
-
-     print  ( "Idealize range " .. min_residue .. " to " .. max_residue )
-
-     print ( "Length " .. idealize_length )
-     if ( idealize_ss == true ) then
-        print ( "Using Idealize SS" )
-     end
-
-     if ( worst_first == false ) then
-        Go ()
-      else
-        GoWorstFirst ()
-     end
-
-     cleanup ()
-
+function getScore()
+	if scoreType == 1 then
+		score = current.GetEnergyScore()
+	end
+	return score
 end
 
-function cleanup ()
-    print ( "Cleaning up" )
-    behavior.SetClashImportance ( 1.0 )
-    save.Quickload ( kOriginalStructureOrNewBest )
+function sphereSegmentsSelect(indexStart, indexEnd)
+	for i = 1, numResidues do
+		sphereSegments[i] = false
+	end
+	for i = 1, numResidues do
+		for j = indexStart, indexEnd do
+			if structure.GetDistance(i, j) < sphereSegmentsRadius then
+				sphereSegments[i] = true
+			end
+		end
+	end
+	selection.DeselectAll()
+	for i = 1, numResidues do
+		if sphereSegments[i] == true then
+			selection.Select(i)
+		end
+	end
 end
 
---main ()
+function goSegment(indexStart, indexEnd)
+	save.Quickload(saveSlot)
+	if indexStart > 1 then
+		structure.InsertCut(indexStart)
+	end
+	if indexEnd < numResidues then
+		structure.InsertCut(indexEnd)
+	end
+	selection.DeselectAll()
+	selection.SelectRange(indexStart, indexEnd)
+	if doIdealizeSS == false then
+		structure.IdealizeSelected()
+	else
+		structure.IdealSSSelected()
+	end
+	if indexStart > 1 then
+		structure.DeleteCut(indexStart)
+	end
+	if indexEnd < numResidues then
+		structure.DeleteCut(indexEnd)
+	end
+
+	if doLocalWiggle == false then
+		sphereSegmentsSelect(indexStart, indexEnd)
+		structure.WiggleSelected(wiggleIterations)
+	else
+		selection.DeselectAll()
+		selection.SelectRange(math.max(1, indexStart - localWiggleSpacer), math.min(indexEnd + localWiggleSpacer, numResidues))
+		structure.WiggleSelected(wiggleIterations)
+	end
+
+	score = getScore()
+	local gain = score - bestScore
+	if gain > 0 then
+		bestScore = score
+		print("Gained: " .. string.format("%.3f", gain), "Score: " .. string.format("%.3f", bestScore))
+		save.Quicksave(saveSlot)
+		--if score > bestScore then
+		--bestScore = score
+		--print("Improvement to " .. string.format("%.3f", bestScore))
+		--save.Quicksave(saveSlot)
+	end
+end
+
+function coPrime(n)
+	local primes = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101}
+	i = #primes   -- find the highest prime < 70% of the residue count and which is coprime with the number of residues
+	while i >= 1 do
+		if (primes[i] < n * 0.7) and (n % primes[i] ~= 0) then
+			return primes[i]
+		end
+		i = i - 1
+	end
+	return 1
+end
+
+function pseudoRandom(score)
+	-- Returns a pseudoRandom number >= 0 and < 1.
+	-- Based on the fractional part of the  score
+	if score >= 0 then
+		return score % 1
+	else
+		return (-score) % 1
+	end
+end
+
+function Go()
+	local inc
+	maxFragStart = maxResidue - fragmentLength + 1
+	numFragments = maxFragStart - minResidue + 1
+	r = pseudoRandom(bestScore)
+
+	indexStart = minResidue + numFragments * r
+	indexStart = indexStart - indexStart % 1
+	inc = coPrime(numFragments)
+
+	for i = 1, numFragments do
+		print(indexStart .. "-" .. indexStart + fragmentLength - 1 .. " (" .. i .. "/" .. numFragments .. ")")
+		goSegment(indexStart, indexStart + fragmentLength - 1)
+		indexStart = indexStart + inc
+		if indexStart > maxFragStart then
+			indexStart = indexStart - numFragments
+		end
+	end
+end
+
+function ShellSort(ids, sequenceScores, n)
+	local inc = 1
+	repeat
+		inc = inc * 3 + 1
+	until inc > n
+	repeat
+		inc = inc / 3
+		inc = inc - inc % 1
+		for i = inc + 1, n do
+			v = sequenceScores[i]
+			w = ids[i]
+			j = i
+			flag = false
+			while (flag == false) and (sequenceScores[j - inc] > v) do
+				sequenceScores[j] = sequenceScores[j - inc]
+				ids[j] = ids[j - inc]
+				j = j - inc
+				if j <= inc then
+					flag = true
+				end
+			end
+			sequenceScores[j] = v
+			ids[j] = w
+		end
+	until inc <= 1
+end
+
+function goWorstFirst()
+	idealityScores = {}
+	sequenceScores = {}
+	ids = {}
+	maxFragStart = maxResidue - fragmentLength + 1
+	numFragments = maxFragStart - minResidue + 1
+
+	for i = minResidue, maxResidue do
+		idealityScores[i] = current.GetSegmentEnergySubscore(i, "ideality")
+	end
+
+	idx = 1
+
+	for i = minResidue, maxResidue - fragmentLength + 1 do
+		total = 0
+		for j = i, i + fragmentLength - 1 do
+			total = total + idealityScores[j]
+		end
+		sequenceScores[idx] = total
+		ids[idx] = i
+		idx = idx + 1
+	end
+
+	ShellSort(ids, sequenceScores, maxFragStart - minResidue + 1)
+
+	for i = 1, numFragments do
+		local j = ids[i] + fragmentLength - 1
+		print("Fragment:", string.format("%03i", i) .. "/" .. string.format("%03i", numFragments), "Segments:", string.format("%03i", ids[i]) .. " - " .. string.format("%03i", j))
+		--print(ids[i] .. "-" ..  ids[i] + fragmentLength - 1 .. " (" .. i .. "/" .. numFragments .. ")")
+		goSegment(ids[i], ids[i] + fragmentLength - 1)
+	end
+end
+
+function getParameters()
+	local dlog = dialog.CreateDialog(scriptName)
+	dlog.startFragmentLength = dialog.AddSlider("Starting Idealize length:", startFragmentLength, 1, 20, 0)
+	dlog.endFragmentLength = dialog.AddSlider("Ending Idealize length:", endFragmentLength, 1, 20, 0)
+	--dlog.fragmentLength = dialog.AddSlider("Idealize length", fragmentLength, 1, 20, 0)
+	dlog.minResidue = dialog.AddSlider("Min residue:", minResidue, 1, numResidues, 0)
+	dlog.maxResidue = dialog.AddSlider("Max residue:", maxResidue, 1, numResidues, 0)
+	dlog.doIdealizeSS = dialog.AddCheckbox("Use IdealizeSS", doIdealizeSS)
+	dlog.doIdealizeBoth = dialog.AddCheckbox("Use both Idealize methods", doIdealizeBoth)
+	dlog.doWorstFirst = dialog.AddCheckbox("Worst first", doWorstFirst)
+	dlog.doLocalWiggle = dialog.AddCheckbox("Local Wiggle", doLocalWiggle)
+	dlog.localWiggleSpacer = dialog.AddSlider("Local wiggle spacer", localWiggleSpacer, 0, 10, 0)
+	dlog.ok = dialog.AddButton("OK", 1)
+	dlog.cancel = dialog.AddButton("Cancel", 0)
+
+	if dialog.Show(dlog) > 0 then
+		startFragmentLength = dlog.startFragmentLength.value
+		endFragmentLength = dlog.endFragmentLength.value
+		--fragmentLength = dlog.fragmentLength.value
+		minResidue = dlog.minResidue.value
+		maxResidue = dlog.maxResidue.value
+		doIdealizeSS = dlog.doIdealizeSS.value
+		doIdealizeBoth = dlog.doIdealizeBoth.value
+		doWorstFirst  = dlog.doWorstFirst.value
+		localWiggleSpacer = dlog.localWiggleSpacer.value
+		doLocalWiggle = dlog.doLocalWiggle.value
+		return true
+	else
+		return false
+	end
+end
+
+function main()
+	print(scriptName, "Build:", buildNumber)
+	save.Quicksave(saveSlot)
+	bestScore = getScore()
+	print("Start Score: ", string.format("%.3f", bestScore))
+	numResidues = structure.GetCount()
+	minResidue = 1
+	while (structure.IsLocked(minResidue) == true) and (minResidue <= numResidues) do
+		minResidue = minResidue + 1
+	end
+	maxResidue = numResidues
+	while (structure.IsLocked(maxResidue) == true) and (maxResidue >= 1) do
+		maxResidue = maxResidue - 1
+	end
+
+	if getParameters() == false then
+		return
+	end
+
+	if scoreType == 2 then
+		behavior.SetSlowFiltersDisabled(true)
+	end
+
+	--print("Idealize Range: " .. minResidue .. " to " .. maxResidue)
+	--print("Length: " .. fragmentLength)
+	--print("Idealize SS: " .. tostring(doIdealizeSS))
+	print("Idealize Range: " .. string.format("%03i", minResidue) .. " to " .. string.format("%03i", maxResidue))
+
+	for i = startFragmentLength, endFragmentLength, -1 do
+		doWorstFirst = true
+		-- test: force WorstFirst always, IdealizeSS first, then repeat without
+		print("")
+		print("Fragment Range: " .. startFragmentLength .. " to " .. endFragmentLength)
+		print("Worst First:", tostring(doWorstFirst))
+		print("")
+		fragmentLength = i
+		print("Current Fragment Length:", fragmentLength)
+		doIdealizeSS = true
+		print("Idealize SS:", tostring(doIdealizeSS))
+		goWorstFirst()
+		doIdealizeSS = false
+		print("")
+		print("Idealize SS:", tostring(doIdealizeSS))
+		goWorstFirst()
+		--if doWorstFirst == false then
+			--Go()
+		--else
+			--goWorstFirst()
+		--end
+	end
+	cleanup()
+end
+
+function cleanup()
+	print("Cleaning up...")
+	behavior.SetClashImportance(1.0)
+	save.Quickload(saveSlot)
+end
+
 xpcall (main, cleanup)
