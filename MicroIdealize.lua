@@ -139,7 +139,7 @@ function Go()
 	end
 end
 
-function ShellSort(ids, sequenceScores, n)
+function shellSort(ids, sequenceScores, n)
 	local inc = 1
 	repeat
 		inc = inc * 3 + 1
@@ -189,7 +189,7 @@ function goWorstFirst()
 		idx = idx + 1
 	end
 
-	ShellSort(ids, sequenceScores, maxFragStart - minResidue + 1)
+	shellSort(ids, sequenceScores, maxFragStart - minResidue + 1)
 
 	for i = 1, numFragments do
 		local j = ids[i] + fragmentLength - 1
