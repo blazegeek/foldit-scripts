@@ -1,9 +1,9 @@
-scriptName="Acid Tweaker"
+scriptName ="Acid Tweaker"
 scriptVersion = 2.8.1
-scriptBuild = 1
+scriptBuild = 2
 
-g_total_score = 0
-g_score = {}
+getTotalScore = 0
+listSegmentEnergyScore = {}
 normal = (current.GetExplorationMultiplier() == 0)
 startRecTime = os.clock()
 OriginalFilterSetting = filter.AreAllEnabled()
@@ -11,13 +11,12 @@ OriginalFilterSetting = filter.AreAllEnabled()
 --Start MIX TABLE inits
 numSegments = structure.GetCount()
 flagLigand = false
-numSegments2 = numSegments -- ligands
+numSegments2 = numSegments -- for ligands (maybe revise this to eliminate numSegments2 altogether)
 while structure.GetSecondaryStructure(numSegments2) == "M" do
 	numSegments2 = numSegments2 - 1
 end
 segStart = 1
 segEnd = numSegments2
---WORKON = {{segStart, numSegments2}}
 workOnBIS = {} -- the table to use is a simple list of segments in any order
 counterVar = 0
 for i = segStart, segEnd do -- basic list of segments (init of workOnBIS)
@@ -48,7 +47,7 @@ isCentroid = false
 isContactMap = false
 isHydrogenBonds = false
 -- Why is this list needed? Are these 'bugs' still present in latest Foldit versions?
-badPuzzle={'999'} -- list of not implemented puzzles - to be edited on each bug with puzzle nb
+badPuzzle = {'999'} -- list of not implemented puzzles - to be edited on each bug with puzzle nb
 
 function returnToOrigFilterSetting()
 	if OriginalFilterSetting then
@@ -71,7 +70,6 @@ function detectFilter()
 	end
 	return
 end
-
 detectFilter()
 
 function CopyTable(orig)
@@ -94,16 +92,16 @@ function FiltersOff()
 	end
 end
 
-function mutFunction(func)
-	local currentfunc = func
+function mutateFunction(func)
+	local currentFunction = func
 	local function mutateFunc(func, newfunc)
-		local lastfunc = currentfunc
-		currentfunc = function(...) return
-			newfunc(lastfunc, ...)
+		local lastFunction = currentFunction
+		currentFunction = function(...) return
+			newfunc(lastFunction, ...)
 		end
 	end
 	local wrapper = function(...)
-		return currentfunc(...)
+		return currentFunction(...)
 	end
 	return wrapper, mutateFunc
 end
@@ -113,12 +111,12 @@ end
 numClassesCopied = 0
 myClassCopy = {}
 
-function mutClass(theClass, withFilters)
+function mutateClass(theClass, withFilters)
 	numClassesCopied = numClassesCopied + 1
 	myClassCopy[numClassesCopied] = CopyTable(theClass)
 	local myClass = myClassCopy[numClassesCopied]
 	for originalKey, originalValue in pairs(theClass) do
-		myFunc, mutateFunc = mutFunction(myClass[originalKey])
+		myFunc, mutateFunc = mutateFunction(myClass[originalKey])
 		if withFilters == true then
 			mutateFunc(myFunc, function(...)
 				FiltersOn()
@@ -154,6 +152,7 @@ function mutClass(theClass, withFilters)
 end
 
 indexLigand = {} -- not used here yet
+-- This is redundant. The while statement on line 15 detects any ligands and changes the last segment accordingly.
 function detectLigand()
 	local lastSeg1 = structure.GetCount()
 	local lastSeg2 = lastSeg1
@@ -176,7 +175,8 @@ detectLigand()
 							Remove anything non-essential
 							Simplify anything essential with modern Lua functions, if they exist
 ]]--
-function puzzleProperties() -- by Bruno Kestemont 20/10/2013, Simplified for AT
+
+function puzzleProperties()
 	local descrTxt = puzzle.GetDescription()
 	local puzzletitle = puzzle.GetName()
 	if #puzzletitle > 0 then
@@ -194,7 +194,6 @@ function puzzleProperties() -- by Bruno Kestemont 20/10/2013, Simplified for AT
 			elseif puzzletitle:find("Dimer of Dimers") or puzzletitle:find("Tetramer") then sym = 4
 			elseif puzzletitle:find("Pentamer") then sym = 5
 			else
-				--SymetryFinder() -- Debugged 03/06/2014
 			end
 		end
 	end
@@ -214,20 +213,20 @@ function puzzleProperties() -- by Bruno Kestemont 20/10/2013, Simplified for AT
 		probableFilter = true
 		print("Bonus active")
 	end
-	if #puzzletitle > 0 and puzzletitle:find("Sepsis") then -- new BK 17/6/2013
+	if #puzzletitle > 0 and puzzletitle:find("Sepsis") then
 		isSepsis = true
 	end
-	if #puzzletitle > 0 and puzzletitle:find("Electron Density") then -- for Electron Density
+	if #puzzletitle > 0 and puzzletitle:find("Electron Density") then
 		isElectronDensity = true
 	end
-	if #puzzletitle > 0 and puzzletitle:find("Centroid") then -- New BK 20/10/2013
+	if #puzzletitle > 0 and puzzletitle:find("Centroid") then
 		--print(true,"-Centroid")
 		isCentroid = true
 	end
-	if #puzzletitle > 0 and puzzletitle:find("Contacts") then -- New BK 20/10/2013
+	if #puzzletitle > 0 and puzzletitle:find("Contacts") then
 		isContactMap = true
 	end
-	if #puzzletitle > 0 and puzzletitle:find("H-Bonds") then -- New BK 20/10/2013
+	if #puzzletitle > 0 and puzzletitle:find("H-Bonds") then
 		isHydrogenBonds = true
 	end
 	return
@@ -261,7 +260,7 @@ end
 
 -- Is this still a necessary bugfix?
 function FakeRecentBestSave()
-	if probableFilter then -- trying to solve the Foldit bug
+	if probableFilter then
 		save.Quicksave(5)
 	else
 		recentbest.Save()
@@ -270,10 +269,10 @@ end
 
 -- Is this still a necessary bugfix?
 function FakeRecentBestRestore()
-	if probableFilter then -- trying to solve the Foldit bug
+	if probableFilter then
 		local scoreBefore = getScore()
-		recentbest.Restore() -- filter disabled (bug)
-		local scoreAfter = getScore() -- now with the filter
+		recentbest.Restore()
+		local scoreAfter = getScore()
 		if scoreAfter > scoreBefore then
 			save.Quicksave(5)
 		end
@@ -295,7 +294,18 @@ function ds(val)
 	end
 end
 
-function WiggleSimple(val,how)
+--[[
+			s		= shake
+			wb	= wiggle backbone
+			Ws	= wiggle sidechain
+			wa	= wiggle all
+			lw	= local wiggle selected
+			rb	= rebuild selected
+
+			Is there a default case if how is nil?
+]]--
+
+function WiggleSimple(val, how)
 	if filterManagement then
 		filter.DisableAll()
 	end
@@ -331,7 +341,7 @@ function WiggleAT(ss, how, iters, minppi)
 	if how == nil then
 		how = "wa"
 	end
-	if isCentroid then -- new BK 20/10/2013
+	if isCentroid then
 		if how == "s" or how == "ws" then
 			how = "wa"
 		end
@@ -339,7 +349,7 @@ function WiggleAT(ss, how, iters, minppi)
 	if iters == nil then
 		iters = 6
 	end
-	minppi = (g_total_score - getScore()) / 100
+	minppi = (getTotalScore - getScore()) / 100
 	if ((minppi == nil) or (minppi < 0.001)) then
 		minppi = 0.001
 	end
@@ -348,12 +358,12 @@ function WiggleAT(ss, how, iters, minppi)
 	end
 	if iters > 0 then
 		iters = iters - 1
-		local sp = getScore()
-		WiggleSimple(val, how)-- new function BK 8/4/2013
-		local ep = getScore()
-		local ig = ep - sp
+		local checkStartScore = getScore()
+		WiggleSimple(val, how)
+		local checkEndScore = getScore()
+		local interimGain = checkEndScore - checkStartScore
 		if how ~= "s" then
-			if ig > minppi then
+			if interimGain > minppi then
 				WiggleAT(ss, how, iters, minppi)
 			end
 		end
@@ -383,15 +393,15 @@ function fixBands(seg)
 	-- selection.DeselectAll()
 	local nb = 1
 	for i = 1, numSegments do
-		dist = structure.GetDistance(seg, i)
-		if (dist < 12 and dist > 6) then
+		checkDistance = structure.GetDistance(seg, i)
+		if (checkDistance < 12 and checkDistance > 6) then
 			local cband = band.GetCount()
 			band.AddBetweenSegments(seg, i)
 			if cband < band.GetCount() then
-				band.SetGoalLength(nb, dist)
+				band.SetGoalLength(nb, checkDistance)
 				nb = nb + 1
 			end
-			-- else if dist > 12 then
+			-- else if checkDistance > 12 then
 			-- selection.Select(i)
 			-- end
 		end
@@ -399,18 +409,19 @@ function fixBands(seg)
 	-- freeze.FreezeSelected(true, true)
 	-- selection.DeselectAll()
 	-- SelectSphere(seg, sphereSize)
-		--structure.WiggleSelected(1, true, true)
-	WiggleSimple(1, "wa") -- new function BK 8/4/2013
+	--structure.WiggleSelected(1, true, true)
+	WiggleSimple(1, "wa")
 	band.DeleteAll()
 	-- freeze.UnfreezeAll()
 end
 
-function round(x)--cut all afer 3-rd place
+function round(x)
 	return x - x % 0.001
 end
 
---calculate REALLY good seed for the pseudorandom in random (avoids to always have the same sequence)
-returnToOrigFilterSetting() -- 24/8/2017 any time score is calcultated on first read, this is verified (for filter bug)
+-- Calculate REALLY good seed for the pseudorandom in random (avoids to always have the same sequence)
+-- Any time score is calcultated on first read, this is verified (for filter bug)
+returnToOrigFilterSetting()
 seed = os.time() / math.abs(getScore())
 seed = seed % 0.001
 seed = 1 / seed
@@ -425,8 +436,6 @@ math.randomseed(seed)
 function down(x)
 	return x - x % 1
 end
-
---START MIX TABLE subroutine by Bruno Kestemont 16/11/2015, idea by Puxatudo & Jeff101 from Go Science
 
 function ShuffleTable(tab) --randomize order of elements
 	local cnt = #tab
@@ -489,14 +498,12 @@ function OutwardTable(tab) --1234567=4352617
 	result = Reverselist(InwardTable(tab))
 	return result
 end
---END MIX TABLE
 
--- Start score management and report
--- better to enable filter during setup => these scores will be reset after dialog
-returnToOrigFilterSetting() -- 24/8/2017 any time score is calcultated on first read, this is verified (for filter bug)
-bestScore = getScore() -- for savebest, I'll reset it after knowing the parameters
-startenergypersegment = (segmentgetScore() - 8000) / segEnd-- NEW BK 18/10/2013 for maximo settings
-winnerseg = 2 -- arbitrary
+-- Better to enable filter during setup => these scores will be reset after dialog
+returnToOrigFilterSetting() -- any time score is calcultated on first read, this is verified (for filter bug)
+bestScore = getScore()
+startEnergyPerSegment = (segmentgetScore() - 8000) / segEnd
+winnerSegment = 2 -- arbitrary
 
 -- TO DO: Simplify output, and add more frequent 'no gain' messages (ie output something for every segment)
 function SaveBest(seg)
@@ -504,40 +511,37 @@ function SaveBest(seg)
 	local g = s - bestScore
 	local WaitingTime = os.clock() --StartChrono
 	if g > 0 then
-		--local sscore=current.GetSegmentEnergyScore(seg) -- it's global now
 		if g >= 0.001 then
-			print("Gained ", round(g)," points on segment ", seg, " scoring: ", round(sscore), ". Total score:",s)
-		elseif WaitingTime > 300 then-- in sec, every 5 minutes, show something to make patience
+			print("Gained " .. round(g) .. " points on segment " .. seg .. " scoring: " .. round(sscore) .. " (Total score: " .. s .. ")")
+		elseif WaitingTime > 300 then
 			StartChrono = os.clock()
-			print("No gain up to seg",seg,"/",segEnd,". Score:", s)
+			print("No gain up to segment " .. seg .."/" ..segEnd .. " (Score: " .. s .. ")")
 		end
 		bestScore = s
 		save.Quicksave(3)
-		if g > bestGain then -- NEW BK 9/10/2013
+		if g > bestGain then
 			bestGain = g
-			winnerseg = seg
+			winnerSegment = seg
 		end
 	end
 end
---End score management and report
 
 function usableAA(sn)
 	local usable = false -- To start, no segment is usable unless it satisfied one of the conditions below
-	sscore = current.GetSegmentEnergyScore(sn)-- NEW BK 9/10/2013 global to print in savebest
+	sscore = current.GetSegmentEnergyScore(sn)
 	if sscore > minimo then
 		return usable
 	end
-	if sscore < maximo then -- NEW BK 8/10/2013
+	if sscore < maximo then
 		return usable
 	end
-	if doRebuild == true then -- tous ceux qui restent si rebuild include. ligands
+	if doRebuild == true then
 		selection.DeselectAll()
 		selection.Select(sn)
 		structure.RebuildSelected(2)
 		usable = true
 		return usable
 	end
-	-- if one of the above condition is met, we verify not further
 	if #useThat > 0 then
 		for i = 1, #useThat do
 			if sn == useThat[i] then
@@ -558,7 +562,7 @@ function usableAA(sn)
 				end
 			end
 		else
-			usable = true -- each segment usable by default
+			usable = true
 			if #doNotUse > 0 then
 				for i = 1, #doNotUse do
 					local ss = doNotUse[i][1]
@@ -597,37 +601,33 @@ end
 
 function wiggle_out(seg)
 	behavior.SetClashImportance(0.6)
-	--structure.WiggleSelected(1,true,true)
-	WiggleSimple(2,"wa") -- new function BK 8/4/2013
+	WiggleSimple(2,"wa")
 	behavior.SetClashImportance(1.0)
 	WiggleAT(seg)
 	WiggleAT(seg,"s",1)
-	--selection.SelectAll()
 	behavior.SetClashImportance(0.6)
 	WiggleAT(seg)
 	behavior.SetClashImportance(1.0)
 	WiggleAT(seg)
-	--recentbest.Restore()
 	FakeRecentBestRestore()
 	SaveBest(seg)
 end
 
 function getNear(seg)
-	if(getScore() < g_total_score - 1000) then
+	if(getScore() < getTotalScore - 1000) then
 		selection.Deselect(seg)
 		behavior.SetClashImportance(0.75)
 		--ds(1)
-		WiggleSimple(1, "s") -- new function BK 8/4/2013
+		WiggleSimple(1, "s")
 		--structure.WiggleSelected(1,false,true)
-		WiggleSimple(1, "ws") -- new function BK 8/4/2013
+		WiggleSimple(1, "ws")
 		selection.Select(seg)
 		behavior.SetClashImportance(1.0)
 	end
-	if(getScore() < g_total_score - 1000) then
+	if(getScore() < getTotalScore - 1000) then
 		if doFixBands == true then
 			fixBands(seg)
 		else
-			--recentbest.Restore()
 			FakeRecentBestRestore()
 			SaveBest(seg)
 			return false
@@ -646,7 +646,7 @@ function sidechainTweak(worklist)
 			selection.DeselectAll()
 			selection.Select(i)
 			local ss = getScore()
-			g_total_score = getScore()
+			getTotalScore = getScore()
 			behavior.SetClashImportance(0)
 			--ds(2)
 			WiggleSimple(2, "s") -- changed to original 2 24/8/2017
@@ -669,22 +669,22 @@ function sidechainTweakAround(worklist)
 		if usableAA(i) then
 			selection.DeselectAll()
 			for n = 1, numSegments do
-				g_score[n] = current.GetSegmentEnergyScore(n)
+				listSegmentEnergyScore[n] = current.GetSegmentEnergyScore(n)
 			end
 			selection.Select(i)
 			local ss = getScore()
-			g_total_score = getScore()
+			getTotalScore = getScore()
 			behavior.SetClashImportance(0)
 			--ds(2)
 			WiggleSimple(2, "s") -- changed to original 2 24/8/2017
 			behavior.SetClashImportance(1.0)
 			SelectSphere(i, sphereSize)
-			if(getScore() > g_total_score - 30) then
+			if(getScore() > getTotalScore - 30) then
 				wiggle_out(i)
 			else
 				selection.DeselectAll()
 				for n = 1, numSegments do
-					if(current.GetSegmentEnergyScore(n) < g_score[n] - 1) then
+					if(current.GetSegmentEnergyScore(n) < listSegmentEnergyScore[n] - 1) then
 						selection.Select(n)
 					end
 				end
@@ -719,10 +719,10 @@ function sidechainManipulate(worklist)   -- negative scores avoided
 				for r = 1, rotamers do
 					--print("Sgmnt: ", i," position: ",r, " Score= ", ss)
 					save.Quickload(4)
-					g_total_score = getScore()
+					getTotalScore = getScore()
 					rotamer.SetRotamer(i,r)
 					behavior.SetClashImportance(1.0)
-					if(getScore() > g_total_score - 30) then
+					if(getScore() > getTotalScore - 30) then
 						SelectSphere(i,sphereSize)
 						wiggle_out(i) -- this can change the number of rotamers
 					end
@@ -815,11 +815,11 @@ end
 sphereSize = 8
 minimo = 600 -- score for working with worst segments. Don't use, usually worst segs have no rotts
 
-if startenergypersegment < -100 then
+if startEnergyPerSegment < -100 then
 	maximo = -100 -- NEW BK 8/10/2013 (filters not considered here before dialog)
-elseif startenergypersegment < -5 then
+elseif startEnergyPerSegment < -5 then
 	maximo = -50
-elseif startenergypersegment < 10 then
+elseif startEnergyPerSegment < 10 then
 	maximo = -10
 else
 	maximo = 10
@@ -886,11 +886,11 @@ function GetParam()
 		end
 		if genericFilter then
 			filterManagement = false -- because reduntant and to avoid enabling filters after wiggles
-			mutClass(structure, false) -- genericFilter bug: should be turned true again ASAP
-			mutClass(band, false)
-			mutClass(current, true)
-			mutClass(recentbest, true)
-			mutClass(save, true)
+			mutateClass(structure, false) -- genericFilter bug: should be turned true again ASAP
+			mutateClass(band, false)
+			mutateClass(current, true)
+			mutateClass(recentbest, true)
+			mutateClass(save, true)
 			print("Always disable filter, unless for scoring")
 		end
 		if filterManagement then
@@ -1013,7 +1013,7 @@ function main()
 			print("")
 		bestGain = 0
 		Run()
-		print("Best gain this loop: ", bestGain," pts on seg ", winnerseg)
+		print("Best gain this loop: ", bestGain," pts on seg ", winnerSegment)
 		local stopLoopTime = os.clock()
 		local stopLoopScore = getScore()
 		print("This loop gained", round( stopLoopScore S startLoopScore) .." in " .. round(stopLoopTime - startLoopTime) / 60 .. " minutes")
