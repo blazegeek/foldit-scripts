@@ -11,31 +11,31 @@ OriginalFilterSetting = filter.AreAllEnabled()
 --Start MIX TABLE inits
 numSegments = structure.GetCount()
 flagLigand = false
-numSegments2 = numSegments -- for ligands (maybe revise this to eliminate numSegments2 altogether)
+numSegments2 = numSegments -- For ligands [TO DO: Revise this to eliminate numSegments2 altogether]
 while structure.GetSecondaryStructure(numSegments2) == "M" do
 	numSegments2 = numSegments2 - 1
 end
 segStart = 1
 segEnd = numSegments2
-workOnBIS = {} -- the table to use is a simple list of segments in any order
+workOnBIS = {} -- Table to use is a simple list of segments in any order
 counterVar = 0
-for i = segStart, segEnd do -- basic list of segments (init of workOnBIS)
+for i = segStart, segEnd do -- Basic list of segments (init of workOnBIS)
 	counterVar = counterVar + 1
 	workOnBIS[counterVar] = i
 end
-mixtables = 1
+mixTables = 1
 randomly = false
 --End MIX TABLE inits
 
 if not OriginalFilterSetting then
-	print("Filter disabled on start... is that intended?")
+	print("Filters disabled on start... is that intended?")
 	local function checkUserFilterPrefDialog()
-		local dlg = dialog.CreateDialog("Are you sure?")
-		dlg.L1 = dialog.AddLabel("Filter disabled on start... is that intended?")
-		dlg.ok = dialog.AddButton("YES", 0)
-		dlg.cancel = dialog.AddButton("NO", 1)
+		local dlg = dialog.CreateDialog("Confirm Disable Filters")
+		dlg.labelConfirmation = dialog.AddLabel("Filter disabled on start... is that intended?")
+		dlg.ok = dialog.AddButton("Confirm", 0)
+		dlg.cancel = dialog.AddButton("Cancel", 1)
 		if dialog.Show(dlg) > 0 then
-			print("Enabling filter by default")
+			print("Enabling filters")
 			filter.EnableAll()
 		end
 	end
@@ -46,12 +46,11 @@ filterManagement = false
 isCentroid = false
 isContactMap = false
 isHydrogenBonds = false
--- Why is this list needed? Are these 'bugs' still present in latest Foldit versions?
-badPuzzle = {'999'} -- list of not implemented puzzles - to be edited on each bug with puzzle nb
+-- ***** IS THIS STILL A BUG? *****
+badPuzzle = {"999"} -- list of not implemented puzzles - to be edited on each bug with puzzle nb
 
-function trunc(x)
-	--return x - x % 1
-	return math.floor(x * 1000) / 1000
+function truncateOne(x)
+	return math.floor(x)
 end
 
 function round(x)
@@ -341,7 +340,7 @@ function wiggleSimple(val, how)
 	end
 end
 
-function wiggleAT(ss, how, iters, minppi)
+function wiggleAT(ss, how, iters, minPPI)
 	local iterationValue = 2
 	local val = 1
 	if doFast == true then
@@ -358,11 +357,11 @@ function wiggleAT(ss, how, iters, minppi)
 	if iters == nil then
 		iters = 6
 	end
-	minppi = (getTotalScore - getScore()) / 100
-	if ((minppi == nil) or (minppi < 0.001)) then
-		minppi = 0.001
+	minPPI = (getTotalScore - getScore()) / 100
+	if ((minPPI == nil) or (minPPI < 0.001)) then
+		minPPI = 0.001
 	end
-	if global_ci == 1.00 then
+	if globalCI == 1.00 then
 		val = iterationValue
 	end
 	if iters > 0 then
@@ -372,19 +371,19 @@ function wiggleAT(ss, how, iters, minppi)
 		local checkEndScore = getScore()
 		local interimGain = checkEndScore - checkStartScore
 		if how ~= "s" then
-			if interimGain > minppi then
-				wiggleAT(ss, how, iters, minppi)
+			if interimGain > minPPI then
+				wiggleAT(ss, how, iters, minPPI)
 			end
 		end
 	end
 end
 
-function selectSphere(currentSegment, radius, nodeselect)
-	if nodeselect ~= true then
+function selectSphere(currentSegment, sphereRadius, nodeSelect)
+	if nodeSelect ~= true then
 		selection.DeselectAll()
 	end
 	for i = 1, numSegments do
-		if structure.GetDistance(currentSegment, i) < radius then
+		if structure.GetDistance(currentSegment, i) < sphereRadius then
 			selection.Select(i)
 		end
 		if includeWorstInSphere == true then
@@ -401,9 +400,9 @@ function fixBands(currentSegment)
 		for i = 1, numSegments do
 			checkDistance = structure.GetDistance(currentSegment, i)
 			if checkDistance < 12 and checkDistance > 6 then
-				local cband = band.GetCount()
+				local bandCount = band.GetCount()
 				band.AddBetweenSegments(currentSegment, i)
-				if cband < band.GetCount() then
+				if bandCount < band.GetCount() then
 					band.SetGoalLength(numBands, checkDistance)
 					numBands = numBands + 1
 				end
@@ -423,68 +422,69 @@ while seed < 10000000 do
 	seed = seed * 1000
 end
 seed = seed - seed % 1
---print("Seed is: "..seed)
 math.randomseed(seed)
 
-function shuffleTable(tab) -- Randomize order of elements
-	local cnt = #tab
-	for i = 1, cnt do
-		local r = math.random(cnt) -- Not very convincing: it gives always the same number on same puzzle
-		tab[i],tab[r] = tab[r],tab[i]
+function shuffleTable(table) -- Randomize order of elements
+	local tableCount = #table
+	for i = 1, tableCount do
+		local r = math.random(tableCount) -- Not very convincing: it gives always the same number on same puzzle
+		table[i],table[r] = table[r],table[i]
 	end
-	return tab
+	return table
 end
 
-function mixInwardTable(tab) -- 1234567 = 7254361 WARNING: if done twice, it returns to the original table
-	local cnt = #tab -- 1234567 = 7254361; 123456 = 624351
-	local mid = trunc(cnt / 2)
-	local result = tab -- in order to avoid any nil segment numbers (fixing a bug)
-	local pair = true
-	for i = 1, mid do
-		pair = not pair
-		if pair then
-			result[i], result[cnt + 1 - i] = tab[i], tab[cnt + 1 - i] -- pair segs are kept untouched
+function mixInwardTable(table) -- 1234567 = 7254361 WARNING: if done twice, it returns to the original table
+	local tableCount = #table -- 1234567 = 7254361; 123456 = 624351
+	local midElement = truncateOne(tableCount / 2)
+	-- ***** IS THIS STILL A BUG? *****
+	local resultTable = table -- in order to avoid any nil segment numbers (fixing a bug)
+	local isPair = true
+	for i = 1, midElement do
+		isPair = not isPair
+		if isPair then
+			resultTable[i], resultTable[tableCount + 1 - i] = table[i], table[tableCount + 1 - i] -- pair segs are kept untouched
 		else
-			result[i], result[cnt + 1 - i] = tab[cnt + 1 - i], tab[i] -- impairs segs are shifted (loop starts with last segment)
+			resultTable[i], resultTable[tableCount + 1 - i] = table[tableCount + 1 - i], table[i] -- impairs segs are shifted (loop starts with last segment)
 		end
 	end
-	return result
+	return resultTable
 end
 
-function inwardTable(tab) -- 1234567 = 7162534 WARNING: if done twice, it mixes everything like a feuillete bakery
-	local cnt = #tab -- 1234567 = 7162534
-	local cntup = 1
-	local result = {}
-	local pair = true
-	for i = 1, #tab do
-		pair = not pair
-		if pair then
-			result[i] = tab[cntup] -- pairs segments are taken from bottom
-			cntup = cntup + 1
+function inwardTable(table) -- 1234567 = 7162534 WARNING: if done twice, it mixes everything like a feuillete bakery
+	local tableCount = #table -- 1234567 = 7162534
+	local tableCountUp = 1
+	local resultTable = {}
+	local isPair = true
+	for i = 1, #table do
+		isPair = not isPair
+		if isPair then
+			resultTable[i] = table[tableCountUp] -- pairs segments are taken from bottom
+			tableCountUp = tableCountUp + 1
 		else
-			result[i] = tab[cnt] -- impairs segs are taken from end (loop starts with last segment)
-			cnt = cnt - 1
+			resultTable[i] = table[tableCount] -- impairs segs are taken from end (loop starts with last segment)
+			tableCount = tableCount - 1
 		end
 	end
-	return result
+	return resultTable
 end
 
-function reverseList(tab) -- 1234567 = 7654321
-	local cnt = #tab
-	local result = {}
-	for i = 1, #tab do -- simply inverts the table 7162534 = 4536271
-		result[i] = tab[cnt + 1 - i]
+function reverseList(table) -- 1234567 = 7654321
+	local tableCount = #table
+	local resultTable = {}
+	for i = 1, #table do -- simply inverts the table 7162534 = 4536271
+		resultTable[i] = table[tableCount + 1 - i]
 	end
-	return result
+	return resultTable
 end
 
-function outwardTable(tab) --1234567 = 4352617
-	local result = {}
-	result = reverseList(inwardTable(tab))
-	return result
+function outwardTable(table) --1234567 = 4352617
+	local resultTable = {}
+	resultTable = reverseList(inwardTable(table))
+	return resultTable
 end
 
 -- Better to enable filter during setup => these scores will be reset after dialog
+-- ***** IS THIS STILL A BUG? *****
 returnToOrigFilterSetting() -- any time score is calcultated on first read, this is verified (for filter bug)
 bestScore = getScore()
 startEnergyPerSegment = (segmentgetScore() - 8000) / segEnd
@@ -493,44 +493,44 @@ winnerSegment = 2 -- arbitrary
 -- TO DO: Simplify output, and add more frequent 'no gain' messages (ie output something for every segment)
 function saveBest(currentSegment)
 	local score = getScore()
-	local gain = score - bestScore
-	local WaitingTime = os.clock() --StartChrono
-	if gain > 0 then
-		if gain >= 0.001 then
-			print("Gained " .. round(g) .. " points on segment " .. currentSegment .. " scoring: " .. round(segmentScore) .. " (Total score: " .. score .. ")")
+	local currentGain = score - bestScore
+	local WaitingTime = os.clock() --startChrono
+	if currentGain > 0 then
+		if currentGain >= 0.001 then
+			print("Gained " .. round(currentGain) .. " points on segment " .. currentSegment .. " scoring: " .. round(segmentScore), "Total score: " .. round(score))
 		elseif WaitingTime > 300 then
-			StartChrono = os.clock()
-			print("No gain up to segment " .. currentSegment .."/" ..segEnd .. " (Score: " .. s .. ")")
+			startChrono = os.clock()
+			print("No gain up to segment " .. currentSegment .."/" ..segEnd, "Score: " .. round(score))
 		end
 		bestScore = score
 		save.Quicksave(3)
-		if gain > bestGain then
-			bestGain = gain
+		if currentGain > bestGain then
+			bestGain = currentGain
 			winnerSegment = currentSegment
 		end
 	end
 end
 
 function usableAA(segmentNumber)
-	local usable = false -- To start, no segment is usable unless it satisfied one of the conditions below
+	local isUsable = false -- To start, no segment is isUsable unless it satisfies one of the conditions below
 	segmentScore = current.GetSegmentEnergyScore(segmentNumber)
 	if segmentScore > minSegScore then
-		return usable
+		return isUsable
 	end
 	if segmentScore < maxSegScore then
-		return usable
+		return isUsable
 	end
 	if doRebuild == true then
 		selection.DeselectAll()
 		selection.Select(segmentNumber)
 		structure.RebuildSelected(2)
-		usable = true
-		return usable
+		isUsable = true
+		return isUsable
 	end
-	if #useThat > 0 then
-		for i = 1, #useThat do
-			if segmentNumber == useThat[i] then
-				usable = true
+	if #useThis > 0 then
+		for i = 1, #useThis do
+			if segmentNumber == useThis[i] then
+				isUsable = true
 				break
 			end
 		end
@@ -541,24 +541,24 @@ function usableAA(segmentNumber)
 				local endSegment = useOnly[i][2]
 				for checkSegment = startSegment, endSegment do
 					if checkSegment == segmentNumber then
-						usable = true
+						isUsable = true
 						break
 					end
 				end
 			end
 		else
-			usable = true
+			isUsable = true
 			if #doNotUse > 0 then
 				for i = 1, #doNotUse do
 					local startSegment = doNotUse[i][1]
 					local endSegment = doNotUse[i][2]
 					for checkSegment = startSegment, endSegment do
 						if checkSegment == segmentNumber then
-							usable = false
+							isUsable = false
 							break
 						end
 					end
-					if usable == false then
+					if isUsable == false then
 						break
 					end
 				end
@@ -567,7 +567,7 @@ function usableAA(segmentNumber)
 				local currentAminoAcid = structure.GetAminoAcid(segmentNumber)
 				for i = 1, #skipAA do
 					if currentAminoAcid == skipAA[i] then
-						usable = false
+						isUsable = false
 						break
 					end
 				end
@@ -579,12 +579,12 @@ function usableAA(segmentNumber)
 		endSegment = endSegment
 	end
 	if segmentNumber < startSegment or segmentNumber > endSegment then
-		usable = false
+		isUsable = false
 	end
-	return usable
+	return isUsable
 end
 
-function wiggle_out(currentSegment)
+function wiggleOut(currentSegment)
 	behavior.SetClashImportance(0.6)
 	wiggleSimple(2, "wa")
 	behavior.SetClashImportance(1.0)
@@ -598,13 +598,13 @@ function wiggle_out(currentSegment)
 	saveBest(currentSegment)
 end
 
-function getNear(currentSegment)
+function getNearest(currentSegment)
 	if(getScore() < getTotalScore - 1000) then
 		selection.Deselect(currentSegment)
 		behavior.SetClashImportance(0.75)
 		--ds(1)
 		wiggleSimple(1, "s")
-		--structure.WiggleSelected(1,false,true)
+		--structure.WiggleSelected(1, false, true)
 		wiggleSimple(1, "ws")
 		selection.Select(currentSegment)
 		behavior.SetClashImportance(1.0)
@@ -621,11 +621,11 @@ function getNear(currentSegment)
 	return true
 end
 
-function sidechainTweak(worklist)
+function sidechainTweak(wiggleList)
 	print("Pass 1 of 3: Sidechain Tweak")
-	worklist = worklist or workOnBIS
-	for j = 1, #worklist do
-		local i = worklist[j]
+	wiggleList = wiggleList or workOnBIS
+	for j = 1, #wiggleList do
+		local i = wiggleList[j]
 		if usableAA(i) then
 			selection.DeselectAll()
 			selection.Select(i)
@@ -636,18 +636,18 @@ function sidechainTweak(worklist)
 			wiggleSimple(2, "s")
 			behavior.SetClashImportance(1.0)
 			selectSphere(i, sphereSize)
-			if (getNear(i) == true) then
-				wiggle_out(i)
+			if (getNearest(i) == true) then
+				wiggleOut(i)
 			end
 		end
 	end
 end
 
-function sidechainTweakAround(worklist)
+function sidechainTweakAround(wiggleList)
 	print("Pass 2 of 3: Sidechain Tweak Around")
-	worklist = worklist or workOnBIS
-	for j = 1, #worklist do
-		local i = worklist[j]
+	wiggleList = wiggleList or workOnBIS
+	for j = 1, #wiggleList do
+		local i = wiggleList[j]
 		if usableAA(i) then
 			selection.DeselectAll()
 			for n = 1, numSegments do
@@ -662,7 +662,7 @@ function sidechainTweakAround(worklist)
 			behavior.SetClashImportance(1.0)
 			selectSphere(i, sphereSize)
 			if(getScore() > getTotalScore - 30) then
-				wiggle_out(i)
+				wiggleOut(i)
 			else
 				selection.DeselectAll()
 				for n = 1, numSegments do
@@ -676,40 +676,38 @@ function sidechainTweakAround(worklist)
 				wiggleSimple(1, "s")
 				selectSphere(i, sphereSize, true)
 				behavior.SetClashImportance(1.0)
-				if (getNear(i) == true) then
-					wiggle_out(i)
+				if (getNearest(i) == true) then
+					wiggleOut(i)
 				end
 			end
 		end
 	end
 end
 
-function sidechainManipulate(worklist)   -- negative scores avoided
-	print("Last chance: bruteforce sidechain doManipulate on best segments")
+function sidechainManipulate(wiggleList) -- negative scores avoided
+	print("Last Chance: Bruteforce sidechain manipulate on best segments")
 	maxSegScore = maxSegScore + 10
-	worklist = worklist or workOnBIS
-	for j = 1, #worklist do
-		local i = worklist[j]
+	wiggleList = wiggleList or workOnBIS
+	for j = 1, #wiggleList do
+		local i = wiggleList[j]
 		if usableAA(i) then
 			selection.DeselectAll()
 			rotamers = rotamer.GetCount(i)
 			save.Quicksave(4)
 			if(rotamers > 1) then
 				local startScore = getScore()
-				--print("Sgmnt: " .. i .. " rotamers: " .. rotamers .. " Score =  " .. startScore)
 				for r = 1, rotamers do
-					--print("Sgmnt: " .. i .. " position: " .. r ..  " Score = " .. startScore)
 					save.Quickload(4)
 					getTotalScore = getScore()
 					rotamer.SetRotamer(i, r)
 					behavior.SetClashImportance(1.0)
 					if(getScore() > getTotalScore - 30) then
 						selectSphere(i,sphereSize)
-						wiggle_out(i) -- this can change the number of rotamers
+						wiggleOut(i) -- This can change the number of rotamers [NOTE: Why? Can we avoid that somehow?]
 					end
 					if rotamers > rotamer.GetCount(i) then
 						break
-					end --if number of rotamers changed
+					end -- If number of rotamers changed, break out of loop
 				end
 			end
 		end
@@ -718,31 +716,36 @@ function sidechainManipulate(worklist)   -- negative scores avoided
 	maxSegScore = maxSegScore - 10
 end
 
--- Only segments that have to be used OVERRIDES all below
--- ie {18,150,151,205,320,322,359,361,425,432,433}
-		--{382}
-useThat = {}
+--[[
+			Only segments that have to be used OVERRIDES all below
+			ie:		{18,150,151,205,320,322,359,361,425,432,433}
+						{382}
+]]--
+useThis = {}
 
--- Ranges that have to be used OVERRIDES BOTH LOWER OPTIONS
---ie 	{{12,24},
---		{66,66}}
+--[[
+			Ranges that have to be used OVERRIDES BOTH LOWER OPTIONS
+			ie: 	{{12,24},
+						{66,66}}
+]]--
 useOnly = {}
 
- --Ranges that should be skipped
--- ie	{{55,58},
---		{12,33}}
+--[[
+			Ranges that should be skipped
+			ie:	{{55,58},
+					{12,33}}
+]]--
 doNotUse = {}
 
- -- AA codes to skip
- -- Default skiping Alanine and Glycine, as they have no sidechains (and therefore no rotamers)
+-- AA codes to skip
+-- Default skipping Alanine and Glycine, as they have no sidechains (and therefore no rotamers)
 skipAA = {'a', 'g',}
 
--- Option to easy set start and end of AT work to-- to be implemented in dialog
+-- Option to easy set start and end of AT work to (to be implemented in dialog)
 startSegment = 1
-endSegment = numSegments -- or maybe numSegments2, until that code is simplified
---endSegment = nil --end of protein if nil -- this seems needlessly convoluted
+endSegment = numSegments -- Or maybe numSegments2, until that code is simplified
 
-includeWorstInSphere = false -- include worst segments in sphere
+includeWorstInSphere = false -- Include worst segments in sphere
 includeWorstInSphereValue = 0
 
 function run()
@@ -751,28 +754,28 @@ function run()
 	fakeRecentBestRestore()
 	save.Quicksave(3)
 	scoreStart = getScore()
-	if doTweek == true then
-		StartChrono = os.clock()
+	if doTweak == true then
+		startChrono = os.clock()
 		sidechainTweak()
 		interimScoreA = getScore()
-		print("Tweak gain: ", round(interimScoreA - scoreStart))
+		print("Tweak gain: " .. round(interimScoreA - scoreStart))
 	end
-	if doTweekAround == true then
+	if doTweakAround == true then
 		interimScoreA = getScore()
-		StartChrono = os.clock()
+		startChrono = os.clock()
 		sidechainTweakAround()
 		interimScoreB = getScore()
-		print("Tweak Around gain: ", round(interimScoreB - interimScoreA))
+		print("Tweak Around gain: " .. round(interimScoreB - interimScoreA))
 	end
 	if doManipulate == true then
-		StartChrono = os.clock()
+		startChrono = os.clock()
 		interimScoreB = getScore()
 		sidechainManipulate()
 		interimScoreC = getScore()
 		if interimScoreC - interimScoreB < 0 then
 			fakeRecentBestRestore()
 		end
-		print("Manipulate gain: ", round(interimScoreC - interimScoreB))
+		print("Manipulate gain: " .. round(interimScoreC - interimScoreB))
 	end
 	selection.SelectAll()
 	wiggleSimple(2, "wa")
@@ -781,16 +784,18 @@ function run()
 	wiggleSimple(2, "wa")
 	fakeRecentBestRestore()
 	scoreEnd = getScore()
-	--print("Start score Loop ", loop,": ", round(scoreStart))
-	--print("Tweak gain: ", round(interimScoreA - scoreStart))
-	--print("Around gain: ", round(interimScoreB - interimScoreA))
-	--print("Manipulate gain: ", round(interimScoreC - interimScoreB))
-	print("Total Acid gain Loop ", loop,": ", round(scoreEnd - scoreStart))
-	--print("End score: ",r ound(scoreEnd))
+	if verboseOutput == true then
+		print("Start Score: Loop " .. currentLoop, round(scoreStart))
+		print("Tweak gain: " .. round(interimScoreA - scoreStart))
+		print("Tweak Around gain: " .. round(interimScoreB - interimScoreA))
+		print("Manipulate gain: " .. round(interimScoreC - interimScoreB))
+		print("End score: " .. round(scoreEnd))
+	end
+	print("Total Acid gain: Loop " .. currentLoop, round(scoreEnd - scoreStart))
 end
 
 sphereSize = 8
-minSegScore = 600 -- score for working with worst segments. Don't use, usually worst segs have no rotts
+minSegScore = 600 -- Score for working with worst segments. Don't use, usually worst segs have no rotamers (Alanine and Glycine)
 
 if startEnergyPerSegment < -100 then
 	maxSegScore = -100
@@ -802,42 +807,40 @@ else
 	maxSegScore = 10
 end
 
-doMutate = false -- Don't use, very bad results yet (TODO)
+doMutate = false -- Don't use, very bad results yet (TODO) [NOTE: So why is it here?]
 doRebuild = true -- For very end of puzzle; rebuild segment before tweak
 doFixBands = false -- If you want to try with the worst segments
 doFast = false
 
-modePhases = 7 -- Mode: (1) Tweek (2) Tweek Around (3) Manipulate Rotamers (4) 1 & 2 (5) 2 & 3 (6) 1 & 3 (7) All
-doTweek = false
-doTweekAround = false
-doManipulate = false -- test rottamers
+modePhases = 7 -- Mode: (1) Tweak (2) Tweak Around (3) Manipulate Rotamers (4) 1 & 2 (5) 2 & 3 (6) 1 & 3 (7) All
+doTweak = false
+doTweakAround = false
+doManipulate = false -- test rotamers
 
 if probableFilter and not isContactMap and not isHydrogenBonds then
 	filterManagement = true
 end
 
 function getParameters()
-	local dlg = dialog.CreateDialog(scriptName)
-	dlg.doFast = dialog.AddCheckbox("Fast Mode (gain 25% less)", false)
+	local dlg = dialog.CreateDialog(scriptName .. " " .. scriptVersion .. " build " .. scriptBuild)
+	dlg.doFast = dialog.AddCheckbox("Fast Mode (Gain 25% less)", false)
 	dlg.doFixBands = dialog.AddCheckbox("Fix geometry with bands when score breaks down", false)
 	--dlg.doManipulate = dialog.AddCheckbox("Brute force in phase 3", true)
-	dlg.labelModeSelectA = dialog.AddLabel("Mode: (1) Tweek (2) Tweek Around (3) Manipulate Rotamers")
+	dlg.labelModeSelectA = dialog.AddLabel("Mode: (1) Tweak (2) Tweak Around (3) Manipulate Rotamers")
 	dlg.labelModeSelectB = dialog.AddLabel("(4) 1 & 2", "(5) 2 & 3", "(6) 1 & 3", "(7) All")
 	dlg.modePhases = dialog.AddSlider("Mode: ", modePhases, 0, 7, 0)
 	dlg.includeWorstInSphere = dialog.AddCheckbox("Include worst segments in sphere", false)
-	dlg.doRebuild = dialog.AddCheckbox("Rebuild before search rotamers. For very end only", true)
+	dlg.doRebuild = dialog.AddCheckbox("Rebuild before searching rotamers (For very end only)", false)
 	dlg.segStart = dialog.AddTextbox("From segment ", segStart)
 	dlg.segEnd = dialog.AddTextbox("To segment ", segEnd)
 	if flagLigand then
 		dlg.labelLigand = dialog.AddLabel("Ligand is segment:  " .. segEnd + 1)
-		--textligand = ("Ligand is segment:  " .. segEnd + 1)
-		--dlg.l1aaaa = dialog.AddLabel(textligand)
 	end
 	dlg.labelOrder = dialog.AddLabel("(1) Up", "(2) Back", "(3) Random", "(4) Out", "(5) In", "(6) Slice")
-	dlg.mixtables = dialog.AddSlider("Order: ", mixtables, 1, 6, 0)
+	dlg.mixTables = dialog.AddSlider("Order: ", mixTables, 1, 6, 0)
 	dlg.labelSkipSemgents = dialog.AddLabel("Skip segments scoring less than: ")
 	dlg.maxSegScore = dialog.AddSlider("Min points/segment: ",maxSegScore, -100, 30, 0)
-	--dlg.minSegScore = dialog.AddSlider("more than",minSegScore,30,600,0)
+	--dlg.minSegScore = dialog.AddSlider("Skip segments scoring more than", minSegScore, 30, 600, 0)
 	if probableFilter then
 		dlg.filterManagement = dialog.AddCheckbox("Disable filter during wiggle", filterManagement) -- default true
 		dlg.genericFilter = dialog.AddCheckbox("Always disable filter, unless for scoring", genericFilter) -- default false
@@ -850,7 +853,7 @@ function getParameters()
 		doFixBands = dlg.doFixBands.value
 		--doManipulate = dlg.doManipulate.value
 		modePhases = dlg.modePhases.value
-		print("Mode =" .. modePhases)
+		print("Mode = " .. modePhases)
 		includeWorstInSphere = dlg.includeWorstInSphere.value
 		doRebuild = dlg.doRebuild.value
 		segStart = dlg.segStart.value
@@ -863,8 +866,9 @@ function getParameters()
 			doMutate = dlg.doMutate.value
 		end
 		if genericFilter then
-			filterManagement = false -- because reduntant and to avoid enabling filters after wiggles
-			mutateClass(structure, false) -- genericFilter bug: should be turned true again ASAP
+			filterManagement = false -- Because it's redundant, and to avoid enabling filters after wiggles
+			-- ***** IS THIS STILL A BUG? *****
+			mutateClass(structure, false) -- Generic filter bug: should be turned on again ASAP
 			mutateClass(band, false)
 			mutateClass(current, true)
 			mutateClass(recentbest, true)
@@ -876,143 +880,140 @@ function getParameters()
 		end
 		-- Actions
 		if modePhases == 1 or modePhases == 4 or modePhases > 5 then
-			doTweek = true
+			doTweak = true
 		end
 		if modePhases == 2 or modePhases == 4 or modePhases ==5 or phase == 7 then
-			doTweekAround = true
+			doTweakAround = true
 		end
 		if modePhases == 3 or modePhases > 4 then
 			doManipulate = true
 		end
 		--For MIXTABLES
-		mixtables = dlg.mixtables.value
-		workOnBIS = {} -- reset / the table to use is a simple list of segments in any order
+		mixTables = dlg.mixTables.value
+		workOnBIS = {} -- Reset. The table to use is a simple list of segments in any order
 		local counterVar = 0
-		for i = segStart, segEnd do -- basic list of segments (reset of workOnBIS)
+		for i = segStart, segEnd do -- Basic list of segments (reset of workOnBIS)
 			counterVar = counterVar + 1
 			workOnBIS[counterVar] = i
 		end
-		if mixtables == 2 then
+		if mixTables == 2 then
 			workOnBIS = reverseList(workOnBIS)
 			print("Backward Walk")
-		elseif mixtables == 3 then
+		elseif mixTables == 3 then
 			randomly = true
 			workOnBIS = shuffleTable(workOnBIS)
 			print("Random Walk")
-		elseif mixtables == 4 then
+		elseif mixTables == 4 then
 			workOnBIS = outwardTable(workOnBIS)
 			print("Outward Walk")
-		elseif mixtables == 5 then
+		elseif mixTables == 5 then
 			workOnBIS = inwardTable(workOnBIS)
 			print("Inward Walk")
-		elseif mixtables == 6 then
+		elseif mixTables == 6 then
 			workOnBIS = mixInwardTable(workOnBIS)
 			print("Sliceward Walk")
-		end -- else normal from first to last in the list
-
+		end -- else normal from first to last in the list [NOTE: Why no else statement in that case?]
 		return true
 	end
 	return false
 end
 
---It's only here that genericFilter starts to make effect !!
+-- It's only here that generic flter starts to make effect
 if getParameters() == false then
 	return
 end
 
---recentbest.Save() -- filter enabled ? NO because of Foldit BUG.
-fakeRecentBestSave() -- should work properly on all situations
+--recentbest.Save() -- Filter enabled? No. Because of Foldit bug [NOTE: Is this still a bug?]
+fakeRecentBestSave() -- Should work properly in all situations
 
-initialScore = getScore() -- ok filter enabled here
-print("Acid Tweeker starting at score: " .. initialScore) -- note: if genericFilter, always on !!
+initialScore = getScore() -- Filters enabled here
+print("Acid Tweaker starting at score: " .. initialScore) -- Note: generic filter always on
 if filter.AreAllEnabled() then
-	print("... without the filters")
+	print("Without the filters")
 end
 bestScore = getScore() -- for savebest, reset with default genericFilter parameters (filter enabled or not)
 
-loop = 0
-hop = 0
+currentLoop = 0
+currentHop = 0 -- [NOTE: This variable is commented out everywhere else]
 
 function main()
 	while(true) do
 		print("")
 		local startLoopTime = os.clock()
 		local startLoopScore = getScore()
-		loop = loop + 1
-		if loop == 2 then
+		currentLoop = currentLoop + 1
+		if currentLoop == 2 then
 			if not doManipulate then
 				doManipulate = true
-				print("Upgrading options: Adding doManipulate-----")
+				print("Upgrading options: Adding Manipulate...")
 			end
 		end
-		if loop == 3 then
+		if currentLoop == 3 then
 			if not doFixBands then
 				doFixBands = true
-				print("Upgrading options: Adding Fixing bands----------")
+				print("Upgrading options: Adding Fix Bands...")
 			end
 		end
-		if loop == 4 then
+		if currentLoop == 4 then
 			if doFast then
 				doFast = false
-				print("Upgrading options: Disabling doFast----------")
+				print("Upgrading options: Disabling Fast...")
 			end
 			if probableFilter and doMutate then
 				doMutate = false
-				print("Upgrading options: Disabling mutate----------")
+				print("Upgrading options: Disabling Mutate...")
 			end
 		end
-		if loop == 5 then
+		if currentLoop == 5 then
 			if not doRebuild then
 				doRebuild = true
-				print("Upgrading options: Adding Rebuild before doManipulate---------")
+				print("Upgrading options: Adding Rebuild before Manipulate...")
 			end
 		end
-		if loop == 6 then
+		if currentLoop == 6 then
 			if not includeWorstInSphere then
 				includeWorstInSphere = true
-				print("Upgrading options: Adding sphere-----------")
+				print("Upgrading options: Adding Worst in Sphere...")
 			end
 		end
-		if loop == 7 then
+		if currentLoop == 7 then
 			if doFixBands then
 				doFixBands = false
-				print("Upgrading options: No Fixing bands----------")
+				print("Upgrading options: Disabling Fix Bands...")
 			end
 		end
-		--hop = hop + 1
-		print("Loop ", loop, "Options:")
-		print("Fast =", doFast,", Fix Bands =", doFixBands, ", Manipulate =", doManipulate .. ",")
-		print("Rebuild =", doRebuild, ", Worst in Sphere =", includeWorstInSphere, ", Segments =", segStart .. "-" .. segEnd)
-		print("Use only segments scoring at least", maxSegScore, "points")
+		--currentHop = currentHop + 1
+		print("Loop: " .. currentLoop .. " Options:")
+		print("Fast: " .. doFast, "Fix Bands:" ..  doFixBands, "Manipulate: " .. doManipulate)
+		print("Rebuild: " .. doRebuild, "Worst in Sphere:" .. includeWorstInSphere)
+		print("Segments: " .. segStart .. "-" .. segEnd)
+		print("Use only segments scoring at least ".. maxSegScore .. " points")
 		if probableFilter then
-			print("Mutate =", doMutate, ", Generic Filter =", genericFilter)
-			print("Filter Management=", filterManagement)
+			print("Mutate: " .. doMutate, "Generic Filter:" .. genericFilter, "Filter Management: " .. filterManagement)
 		end
-			print("")
+		print("")
 		bestGain = 0
 		run()
-		print("Best gain this loop: ", bestGain," points on segment ", winnerSegment)
+		print("Best gain this loop: " .. bestGain .. " points on segment " .. winnerSegment)
 		local stopLoopTime = os.clock()
 		local stopLoopScore = getScore()
-		print("This loop gained", round( stopLoopScore S startLoopScore) .." in " .. round(stopLoopTime - startLoopTime) / 60 .. " minutes")
-		--if minSegScore < 600 then minSegScore = minSegScore + 10 end -- good scoring segs will gain much with at
-		maxSegScore = maxSegScore - 10 -- worst scoring segs will not gain with at, but if you've so much time, ok we try
-		print("Total Gain: ", round(getScore() - initialScore), "Score:", round(getScore()), "Start Score: ", round(initialScore))
-		print("CPU time =", round((stopLoopTime - startRecTime) / 60) .." minutes")
+		print("This loop gained " .. round(stopLoopScore - startLoopScore) .. " in " .. round((stopLoopTime - startLoopTime) / 60) .. " minutes")
+		--if minSegScore < 600 then minSegScore = minSegScore + 10 end -- Good-scoring segments will gain much with AT
+		maxSegScore = maxSegScore - 10 -- Worst scoring segments will not gain with AT, but we try anyway
+		print("Total Gain: " .. round(getScore() - initialScore), "Score: " .. round(getScore()), "Start Score: " .. round(initialScore))
+		print("CPU Time: " .. round((stopLoopTime - startRecTime) / 60) .. " minutes")
 	end
 end
 
 function cleanup(err)
 	start, stop, line, msg = err:find(":(%d+):%s()")
 	err = err:sub(msg, #err)
-	if err:find('Cancelled') ~= nil then
+	if err:find("Cancelled") ~= nil then
 		print("Cancelled")
 	else
 		print("Unexpected error detected")
-		print("Error line:", line)
-		print("Error:", err)
+		print("Line: " .. line, "ERROR: " .. err)
 	end
-	--recentbest.Restore()
 	fakeRecentBestRestore()
 	behavior.SetClashImportance(1.0)
 	returnToOrigFilterSetting()
