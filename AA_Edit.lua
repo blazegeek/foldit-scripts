@@ -57,13 +57,14 @@
 scriptName = "AA Edit"
 scriptVersion = 2.0.2.1
 buildNumber = 1
+printVerbose = false
 
 isMutable = false -- true if any mutable segments found
 
-aaLong = 1 -- Unused variable
-aaCode = 2 -- Redundant for proteins, needed for DNA and RNA
-aaAtom = 3
-aaType = 4
+aaLong = 1 -- Full name (for amino acids, nucleobases, and ligands)
+aaCode = 2 -- Single-letter code
+aaAtom = 3 -- Mid-Chain atom count
+aaType = 4 -- Chain Type (Protein, Ligand, RNA, or DNA)
 
 --[[
 			Third element is mid-chain atom count
@@ -77,7 +78,7 @@ aaType = 4
 					(This DOES affect heavy atom count: the beta carbon will be atom 6 instead of 5, shifting all other heaavy atoms up by one)
 ]]--
 
--- x = {"amino acid name", "single-letter-code", mid-chain atom count, "amino acid type"}
+-- x = {"amino acid name", "single-letter-code", mid-chain atom count, "chain type"}
 aaNames = {
 	a = {"alanine", "a", 10, "P",},
 	c = {"cysteine", "c", 11, "P",},
@@ -121,9 +122,9 @@ aaNames = {
 aaAtomMax = 27
 
 -- Tables for converting external nucleobase codes to Foldit internal codes
-rnaIn = {a = "ra", c = "rc", g = "rg", u = "ru",}
-dnaIn = {a = "da", c = "dc", g = "dg", t = "dt",}
-cTypes = {P = "protein", D = "DNA", R = "RNA", M = "ligand",}
+internalNucleobaseCodeRNA = {a = "ra", c = "rc", g = "rg", u = "ru",}
+internalNucleobaseCodeDNA = {a = "da", c = "dc", g = "dg", t = "dt",}
+chainTypes = {P = "protein", D = "DNA", R = "RNA", M = "ligand",}
 
 -- Common section used by all safe functions
 safefun = {}
@@ -223,150 +224,151 @@ end
 		* Need to reconcile this version with the more extensive version in print protein
 ]]--
 
-proteinInfo = {
+	proteinInfo = {
 	typeProtein = "P",
 	typeLigand = "M",
 	typeRNA = "R",
 	typeDNA = "D",
-	unknownAA = "x",
+	unknownAminoAcid = "x",
 	unknownNucleobase = "xx",
 	aaCysteine = "c",
 	aaProline = "p",
 	aaCode = {}, -- Amino Acid codes
 	ssCode = {}, -- Secondary Structure codes
 	atomCount = {}, -- Atom counts
-	flagMutable = {}, -- Mutable flag
-	ctype = {}, -- Segment type - P, M, R, D
+	mutableCount = {}, -- Mutable segment count
+	chainType = {}, -- Segment type - P, M, R, D
 	isFirst = {}, -- True if segment is first in chain
 	isLast = {}, -- True if segment is last in chain
-	isNTerminus = {}, -- True if protein and if n-terminal
-	isCTerminus = {}, -- True if protein and if c-terminal
+	isNTerminus = {}, -- True if protein and if N-terminus
+	isCTerminus = {}, -- True if protein and if C-terminus
 	outputFASTA = {}, -- External code for FASTA-style output
 
 	setInfo = function()
 		local segCnt = structure.GetCount()
 		-- Initial scan: retrieve basic information from Foldit
-		for ii = 1, segCnt do
+		for i = 1, segCnt do
 			local isNTerminus = false
 			local isCTerminus = false
 
-			proteinInfo.aaCode[#proteinInfo.aaCode + 1] = getAA(ii)
-			proteinInfo.ssCode[#proteinInfo.ssCode + 1] = structure.GetSecondaryStructure(ii)
-			proteinInfo.atomCount[#proteinInfo.atomCount + 1] = structure.GetAtomCount(ii)
-			proteinInfo.flagMutable[#proteinInfo.flagMutable + 1] = structure.IsMutable(ii)
-			local aatab = aaNames[proteinInfo.aaCode[ii]]
-			if aatab ~= nil then
-				proteinInfo.ctype[#proteinInfo.ctype + 1] = aatab[aaType]
+			proteinInfo.aaCode[#proteinInfo.aaCode + 1] = getAA(i)
+			proteinInfo.ssCode[#proteinInfo.ssCode + 1] = structure.GetSecondaryStructure(i)
+			proteinInfo.atomCount[#proteinInfo.atomCount + 1] = structure.GetAtomCount(i)
+			proteinInfo.mutableCount[#proteinInfo.mutableCount + 1] = structure.IsMutable(i)
+			local aaTable = aaNames[proteinInfo.aaCode[i]]
+			if aaTable ~= nil then
+				proteinInfo.chainType[#proteinInfo.chainType + 1] = aaTable[aaType]
 
 				-- Special case for puzzles 879, 1378b, and similar (if unknown amino acid, but secondary structure is not ligand, mark it as protein) [Segment 134 in puzzle 879 is the example]
-				if proteinInfo.ctype[ii] == proteinInfo.typeLigand and proteinInfo.ssCode[ii] ~= proteinInfo.typeLigand then
-					proteinInfo.ctype[ii] = proteinInfo.typeProtein
+				if proteinInfo.chainType[i] == proteinInfo.typeLigand and proteinInfo.ssCode[i] ~= proteinInfo.typeLigand then
+					proteinInfo.chainType[i] = proteinInfo.typeProtein
 				end
 			else
-				proteinInfo.ctype[#proteinInfo.ctype + 1] = proteinInfo.typeLigand
-				aaCode = proteinInfo.unknownAA
+				proteinInfo.chainType[#proteinInfo.chainType + 1] = proteinInfo.typeLigand
+				aaCode = proteinInfo.unknownAminoAcid
 			end
 
-			-- For proteins: determine n-terminal and c-terminal based on atom count
-			if proteinInfo.ctype[ii] == proteinInfo.typeProtein then
+			-- For proteins: determine N-terminus and C-terminus based on atom count
+			if proteinInfo.chainType[i] == proteinInfo.typeProtein then
 				local ttyp = ""
-				local noteable = false
-				local ac = proteinInfo.atomCount[ii]  -- actual atom count
-				local act = aatab[aaAtom]    -- reference mid-chain atom count
-					if ac ~= act or (proteinInfo.aaCode[ii] == proteinInfo.aaCysteine and ac == act) then
+				local isNotable = false
+				local actualAtomCount = proteinInfo.atomCount[i]  -- actual atom count
+				local act = aaTable[aaAtom]    -- reference mid-chain atom count
+					if actualAtomCount ~= act or (proteinInfo.aaCode[i] == proteinInfo.aaCysteine and actualAtomCount == act) then
 						ttyp = "non-standard amino acid"
-						if ac == act + 2 then
-							ttyp = "N-terminal"
+						if actualAtomCount == act + 2 then
+							ttyp = "N-terminus"
 							isNTerminus = true
-							notable = true
-						elseif ac == act + 1 then
-							ttyp = "C-terminal"
+							isNotable = true
+						elseif actualAtomCount == act + 1 then
+							ttyp = "C-terminus"
 							isCTerminus = true
-							notable = true
-						elseif proteinInfo.aaCode[ii] == proteinInfo.aaProline and ac == act + 3 then
-							ttyp = "N-terminal"
+							isNotable = true
+						elseif proteinInfo.aaCode[i] == proteinInfo.aaProline and actualAtomCount == act + 3 then
+							ttyp = "N-terminus"
 							isNTerminus = true
-							notable = true
+							isNotable = true
 						end
-						if proteinInfo.aaCode[ii] == proteinInfo.aaCysteine then
-							local ds = current.GetSegmentEnergySubscore(ii, "Disulfides")
+						if proteinInfo.aaCode[i] == proteinInfo.aaCysteine then
+							local ds = current.GetSegmentEnergySubscore(i, "Disulfides")
 							if ds ~= 0 and math.abs(ds) > 0.01 then
 								isNTerminus = false
 								isCTerminus = false
 								ttyp = "Disulfide bridge"
-								if ac == act + 1 then
-									ttyp = "N-terminal"
+								if actualAtomCount == act + 1 then
+									ttyp = "N-terminus"
 									isNTerminus = true
-								elseif ac == act then
-									ttyp = "C-terminal"
+								elseif actualAtomCount == act then
+									ttyp = "C-terminus"
 									isCTerminus = true
 								end
-								notable = true
+								isNotable = true
 							else
 								ttyp = "Unpaired cysteine"
-								notable = false
+								isNotable = false
 							end
 						end
-						if notable then
-							print(ttyp .. " detected at segment " .. ii .. ", amino acid = \'" .. proteinInfo.aaCode[ii] .. "\', atom count = " .. ac .. ", reference count = " .. act .. ", secondary structure = " .. proteinInfo.ssCode[ii])
+						if isNotable then
+							print(ttyp .. " detected at segment " .. i .. ", amino acid = \'" .. proteinInfo.aaCode[i] .. "\', atom count = " .. actualAtomCount .. ", reference count = " .. act .. ", secondary structure = " .. proteinInfo.ssCode[i])
 						end
 					end
 			end
-			if  proteinInfo.ctype[ii] == proteinInfo.typeLigand then
-				print("Ligand detected at segment " .. ii)
+			if  proteinInfo.chainType[i] == proteinInfo.typeLigand then
+				print("Ligand detected at segment " .. i)
 			end
 			proteinInfo.isNTerminus[#proteinInfo.isNTerminus + 1] = isNTerminus
 			proteinInfo.isCTerminus[#proteinInfo.isCTerminus + 1] = isCTerminus
 
-			proteinInfo.outputFASTA[#proteinInfo.outputFASTA + 1] = aatab[aaCode]
+			proteinInfo.outputFASTA[#proteinInfo.outputFASTA + 1] = aaTable[aaCode]
 		end
 
 		-- Rescan to determine first and last in chain for all types
 		-- It's necessary to "peek" at neighbors for DNA and RNA
-		for ii = 1, segCnt do
-			local isNTerminus = proteinInfo.isNTerminus[ii]
-			local isCTerminus = proteinInfo.isCTerminus[ii]
+		for i = 1, segCnt do
+			local isNTerminus = proteinInfo.isNTerminus[i]
+			local isCTerminus = proteinInfo.isCTerminus[i]
 			local isFirst = false
 			local isLast = false
-			if ii == 1 then
+			if i == 1 then
 				isFirst = true
 			end
-			if ii == segCnt then
+			if i == segCnt then
 				isLast = true
 			end
-			if proteinInfo.ctype[ii] == proteinInfo.typeProtein then
-				if proteinInfo.isNTerminus[ii] then
+			if proteinInfo.chainType[i] == proteinInfo.typeProtein then
+				if proteinInfo.isNTerminus[i] then
 					isFirst = true
 				end
-				if proteinInfo.isCTerminus[ii] then
+				if proteinInfo.isCTerminus[i] then
 					isLast = true
 				end
-				-- kludge for cases where binder target doesn't have an identifiable C terminal
-				if ii < segCnt then
-					if   proteinInfo.ctype[ii] == proteinInfo.typeProtein or (proteinInfo.ctype[ii] == proteinInfo.typeProtein and proteinInfo.isNTerminus[ii + 1]) then
+				-- kludge for cases where binder target doesn't have an identifiable C-terminus
+				if i < segCnt then
+					if   proteinInfo.chainType[i] == proteinInfo.typeProtein or (proteinInfo.chainType[i] == proteinInfo.typeProtein and proteinInfo.isNTerminus[i + 1]) then
 						isLast = true
 					end
 				end
 
-				-- Special case for puzzles 879, 1378b, and similar (if modified AA ends or begins a chain, mark it as C-terminal or N-terminal)
+				-- Special case for puzzles 879, 1378b, and similar (if modified AA begins or ends a chain, mark it as C-terminus or N-terminus)
 				-- Hypothetical: no way to test so far!
-				if aaNames[proteinInfo.aaCode[ii]][aaCode] == proteinInfo.unknownAA then
-					if ii > 1 and proteinInfo.ctype[ii - 1] ~= proteinInfo.ctype[ii] then
+				-- [NOTE] Do we even need this at all?
+				if aaNames[proteinInfo.aaCode[i]][aaCode] == proteinInfo.unknownAminoAcid then
+					if i > 1 and proteinInfo.chainType[i - 1] ~= proteinInfo.chainType[i] then
 						isFirst = true
-						proteinInfo.isNTerminus[ii] = true
-						print("Non-standard amino acid at segment " .. ii .. " marked as N-terminal")
+						proteinInfo.isNTerminus[i] = true
+						print("Non-standard amino acid at segment " .. i .. " marked as N-terminus")
 					end
-					if ii < segCnt and proteinInfo.ctype[ii + 1] ~= proteinInfo.ctype[ii] then
+					if i < segCnt and proteinInfo.chainType[i + 1] ~= proteinInfo.chainType[i] then
 						isLast = true
-						proteinInfo.isCTerminus[ii] = true
-						print("Non-standard amino acid at segment " .. ii .. " marked as C-terminal")
+						proteinInfo.isCTerminus[i] = true
+						print("Non-standard amino acid at segment " .. i .. " marked as C-terminus")
 					end
 				end
-			elseif proteinInfo.ctype[ii] == proteinInfo.typeDNA or proteinInfo.ctype[ii] == proteinInfo.typeRNA then
-				if ii > 1 and proteinInfo.ctype[ii - 1] ~= proteinInfo.ctype[ii] then
+			elseif proteinInfo.chainType[i] == proteinInfo.typeDNA or proteinInfo.chainType[i] == proteinInfo.typeRNA then
+				if i > 1 and proteinInfo.chainType[i - 1] ~= proteinInfo.chainType[i] then
 					isFirst = true
 				end
-				if ii < segCnt and proteinInfo.ctype[ii + 1] ~= proteinInfo.ctype[ii] then
+				if i < segCnt and proteinInfo.chainType[i + 1] ~= proteinInfo.chainType[i] then
 					isLast = true
 				end
 			else -- ligand
@@ -387,7 +389,7 @@ function getChains()
 	Most Foldit puzzles contain only a single protein (peptide) chain. A few puzzles contain ligands, and some puzzles have had two
 	protein chains. Foldit puzzles may also contain RNA or DNA.
 
-	For proteins, the atom count can be used to identify the first (N terminal) and last (C terminal) ends of the chain. The aaNames table has the mid-chain atom counts for each amino acid.
+	For proteins, the atom count can be used to identify the first (N-terminus) and last (C-terminus) ends of the chain. The aaNames table has the mid-chain atom counts for each amino acid.
 
 	Cysteine is a special case, since the presence of a disulfide bridge also changes the atom count.
 
@@ -397,83 +399,83 @@ function getChains()
 
 	CHAIN TABLE ENTRIES
 	-------------------
-	ctype - chain type - "P" for protein, "M" for ligand, "R" for RNA, "D" for DNA
-	fasta - FASTA-format sequence, single-letter codes (does not include FASTA header)
-	fastab - "backup" of fasta
-	start - Foldit segment number of sequence start
-	stop - Foldit segment number of sequence end
-	len - length of sequence
-	chainid - chain id assigned to entry, "A", "B", "C", and so on
-	flagMutable - number of mutable segments
+	chainType: Chain Type - "P" for protein, "M" for ligand, "R" for RNA, "D" for DNA
+	sequenceFASTA: FASTA-format sequence - Single-letter codes (does not include FASTA header)
+	backupFASTA:  Backup of FASTA sequence
+	sequenceStart: Foldit segment number of sequence start
+	sequenceEnd: Foldit segment number of sequence end
+	sequenceLength: Length of sequence
+	chainID: Chain ID assigned to entry, "A", "B", "C", and so on
+	mutableCount: Number of mutable segments
 
-	For DNA and RNA, fasta and fastab contain single-letter codes, so "a" for adenine. The codes overlap the amino acid codes (for example, "a" for alanine). The DNA and RNA codes must be converted to the appropriate two-letter codes Foldit uses internally, for example "ra" for RNA adenine and "da" for DNA adenine.
+	For DNA and RNA, FASTA and Backup FASTA contain single-letter codes, so "a" for adenine. The codes overlap the amino acid codes (for example, "a" for alanine). The DNA and RNA codes must be converted to the appropriate two-letter codes Foldit uses internally, for example "ra" for RNA adenine and "da" for DNA adenine.
 
-	We're assuming Foldit won't ever have more chains
+	We're assuming Foldit won't ever have more than 26 chains
 ]]--
 
-	local chainid = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
-	local chainz = {}
-	local chindx = 0
-	local curchn = nil
+	local chainID = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+	local chainZ = {}
+	local chainIndex = 0
+	local currentChain = nil
 
 	local segCnt = structure.GetCount()
 
-	for ii = 1, segCnt do
-		if proteinInfo.isFirst[ii] then
-			chindx = chindx + 1
-			chainz[chindx] = {}
-			curchn = chainz[chindx]
-			curchn.ctype = proteinInfo.ctype[ii]
-			curchn.fasta = ""
-			curchn.start = ii
-			curchn.chainid = chainid[chindx]
-			curchn.flagMutable = 0
-			curchn.len = 0
+	for i = 1, segCnt do
+		if proteinInfo.isFirst[i] then
+			chainIndex = chainIndex + 1
+			chainZ[chainIndex] = {}
+			currentChain = chainZ[chainIndex]
+			currentChain.chainType = proteinInfo.chainType[i]
+			currentChain.sequenceFASTA = ""
+			currentChain.sequenceStart = i
+			currentChain.chainID = chainID[chainIndex]
+			currentChain.mutableCount = 0
+			currentChain.sequenceLength = 0
 		end
 
-		curchn.fasta = curchn.fasta .. proteinInfo.outputFASTA[ii]
-		if proteinInfo.flagMutable[ii] then
-			curchn.flagMutable = curchn.flagMutable + 1
+		currentChain.sequenceFASTA = currentChain.sequenceFASTA .. proteinInfo.outputFASTA[i]
+		if proteinInfo.mutableCount[i] then
+			currentChain.mutableCount = currentChain.mutableCount + 1
 		end
 
-		if proteinInfo.isLast[ii] then
-			curchn.stop = ii
-			curchn.len = curchn.stop -(curchn.start - 1)
+		if proteinInfo.isLast[i] then
+			currentChain.sequenceEnd = i
+			currentChain.sequenceLength = currentChain.sequenceEnd -(currentChain.sequenceStart - 1)
 		end
 	end
 
-	for ii = 1, #chainz do
-		chainz[ii].fastab = chainz[ii].fasta
+	for i = 1, #chainZ do
+		chainZ[i].backupFASTA = chainZ[i].sequenceFASTA
 	end
-	return chainz
+	return chainZ
 end
 
 function setChain(chain)
-	local changes = 0
-	local errz = 0
-	local offset = chain.start - 1
+	local sequenceChanges = 0
+	local numErrors = 0
+	local sequenceOffset = chain.sequenceStart - 1
 
-	local fastan = "" -- possibly changed chain
-	for ii = 1, chain.stop - (chain.start - 1) do
-		local sType = chain.fasta:sub(ii, ii)
-		local oType = chain.fastab:sub(ii, ii)
+	local fastan = "" -- Possibly changed chain
+	for i = 1, chain.sequenceEnd - (chain.sequenceStart - 1) do
+		local sType = chain.sequenceFASTA:sub(i, i)
+		local oType = chain.backupFASTA:sub(i, i)
 
 		-- for DNA and RNA, convert FASTA to Foldit
-		if chain.ctype == proteinInfo.typeDNA then
-			sType = dnaIn[sType]
+		if chain.chainType == proteinInfo.typeDNA then
+			sType = internalNucleobaseCodeDNA[sType]
 				if sType == nil then
 					sType = proteinInfo.unknownNucleobase
 				end
-				oType = dnaIn[oType]
+				oType = internalNucleobaseCodeDNA[oType]
 				if oType == nil then
 					oType = proteinInfo.unknownNucleobase
 				end
-		elseif chain.ctype == proteinInfo.typeRNA then
-			sType = rnaIn[sType]
+		elseif chain.chainType == proteinInfo.typeRNA then
+			sType = internalNucleobaseCodeRNA[sType]
 			if sType == nil then
 				sType = proteinInfo.unknownNucleobase
 			end
-			oType = rnaIn[oType]
+			oType = internalNucleobaseCodeRNA[oType]
 			if oType == nil then
 				oType = proteinInfo.unknownNucleobase
 			end
@@ -482,50 +484,50 @@ function setChain(chain)
 		if sType ~= oType then
 			local sName = aaNames[sType]
 			if sName ~= nil then
-				if proteinInfo.flagMutable[ii + offset] then
-					structure.SetAminoAcid(ii + offset, sType)
-					local newaa = structure.GetAminoAcid(ii + offset)
-					if newaa == sType then
-						changes = changes + 1
+				if proteinInfo.mutableCount[i + sequenceOffset] then
+					structure.SetAminoAcid(i + sequenceOffset, sType)
+					local newAminoAcid = structure.GetAminoAcid(i + sequenceOffset)
+					if newAminoAcid == sType then
+						sequenceChanges = sequenceChanges + 1
 						fastan = fastan .. aaNames[sType][aaCode]
 					else
-						print("Segment " .. ii + offset .. " (" .. chain.chainid .. ":" ..  ii ..	") mutation to type \"" .. sType .. "\" failed")
-						errz = errz + 1
+						print("Segment " .. i + sequenceOffset .. " (" .. chain.chainID .. ":" ..  i ..	") mutation to type \"" .. sType .. "\" failed")
+						numErrors = numErrors + 1
 						fastan = fastan .. aaNames[oType][aaCode]
 					end
 				else
-					print("Segment " .. ii + offset .." (" .. chain.chainid .. ":" ..  ii .. ") is not mutable, skipping change to type \""	.. sType .. "\"")
-					errz = errz + 1
+					print("Segment " .. i + sequenceOffset .." (" .. chain.chainID .. ":" ..  i .. ") is not mutable, skipping change to type \""	.. sType .. "\"")
+					numErrors = numErrors + 1
 					fastan = fastan .. aaNames[oType][aaCode]
 				end
 			else
-				print("Segment " .. ii + offset .. " ("	.. chain.chainid .. ":" ..  ii ..	"), skipping invalid type \""	.. sType ..	"\"")
-				errz = errz + 1
+				print("Segment " .. i + sequenceOffset .. " ("	.. chain.chainID .. ":" ..  i ..	"), skipping invalid type \""	.. sType ..	"\"")
+				numErrors = numErrors + 1
 				fastan = fastan .. aaNames[oType][aaCode]
 			end
 		else
 			fastan = fastan .. aaNames[oType][aaCode]
 		end
 	end
-	chain.fasta = fastan
-	chain.fastab = fastan
-	return changes, errz
+	chain.sequenceFASTA = fastan
+	chain.backupFASTA = fastan
+	return sequenceChanges, numErrors
 end
 
-function GetParameters(chnz, peptides, gchn, minseg, maxseg, totlen, totmut)
+function GetParameters(chainZ, peptides, getChainSequenceFASTA, minSegment, maxSegment, totalLength, totalMutableChainCount)
 	local dlog = dialog.CreateDialog(scriptName)
 
 	dlog.sc0  = dialog.AddLabel("Segment count = " .. structure.GetCount())
 	local cwd = "chain"
-	if #chnz > 1 then
+	if #chainZ > 1 then
 		cwd = "chains"
 	end
-	dlog.chz  = dialog.AddLabel(#chnz .. " chains")
-	for ii = 1, #chnz do
-		local chain = chnz[ii]
-		dlog["chn" .. ii .. "l1"] = dialog.AddLabel("Chain " .. chain.chainid .. " ("	.. cTypes[chnz[ii].ctype] .. ")")
-		dlog["chn" .. ii .. "l2"] = dialog.AddLabel ("Segments " .. chain.start ..	"-"	.. chain.stop .. ", mutables = " .. chain.flagMutable ..	", length = "	.. chain.len)
-		dlog["chn" .. ii .. "ps"] = dialog.AddTextbox("Seq", chain.fasta)
+	dlog.chz  = dialog.AddLabel(#chainZ .. " chains")
+	for i = 1, #chainZ do
+		local chain = chainZ[i]
+		dlog["chn" .. i .. "l1"] = dialog.AddLabel("Chain " .. chain.chainID .. " ("	.. chainTypes[chainZ[i].chainType] .. ")")
+		dlog["chn" .. i .. "l2"] = dialog.AddLabel ("Segments " .. chain.sequenceStart ..	"-"	.. chain.sequenceEnd .. ", mutables = " .. chain.mutableCount ..	", length = "	.. chain.sequenceLength)
+		dlog["chn" .. i .. "ps"] = dialog.AddTextbox("Seq", chain.sequenceFASTA)
 	end
 
 	dlog.u0 = dialog.AddLabel("")
@@ -553,11 +555,11 @@ function GetParameters(chnz, peptides, gchn, minseg, maxseg, totlen, totmut)
 	if isMutable then
 		dlog.ok = dialog.AddButton("Change" , 1)
 	end
-	dlog.exit = dialog.AddButton("Exit" , 0)
+	dlog.exit = dialog.AddButton("Cancel" , 0)
 
 	if dialog.Show(dlog) > 0 then
-		for ii = 1, #chnz do
-			chnz[ii].fasta = dlog["chn" .. ii .. "ps"].value:lower():sub(1, chnz[ii].len)
+		for i = 1, #chainZ do
+			chainZ[i].sequenceFASTA = dlog["chn" .. i .. "ps"].value:lower():sub(1, chainZ[i].sequenceLength)
 		end
 		return true
 	else
@@ -566,100 +568,103 @@ function GetParameters(chnz, peptides, gchn, minseg, maxseg, totlen, totmut)
 end
 
 function main()
-	print(scriptName)
-	print("Puzzle: " .. puzzle.GetName())
-	print("Track: " .. ui.GetTrackName())
+	print(scriptName .. "v" .. scriptVersion .. " build " .. scriptBuild)
+	if printVerbose == true then
+		print("Puzzle: " .. puzzle.GetName())
+		print("Track: " .. ui.GetTrackName())
+	end
 
 	proteinInfo.setInfo()
 
-	for ii = 1, structure.GetCount() do
-		if proteinInfo.flagMutable[ii] == true then
+	for i = 1, structure.GetCount() do
+		if proteinInfo.mutableCount[i] == true then
 			isMutable = true
 			break
 		end
 	end
 
 	local changeNum = 0
-	local chnTbl = {} -- chains as table of tables
-	chnTbl = getChains()
-	print(#chnTbl .. " chains and ligands")
+	local chainTable = {} -- chains as table of tables
+	chainTable = getChains()
+	print(#chainTable .. " chains and ligands")
 
-	local totlen = 0
-	local maxlen = 0
-	local chncnt = 0
-	local mutchn = 0
-	local totmut = 0
-	local gchn = ""
-	local minseg = 99999
-	local maxseg = 0
+	local totalLength = 0
+	local maxLength = 0
+	local chainCount = 0
+	local mutableChainCount = 0
+	local totalMutableChainCount = 0
+	local getChainSequenceFASTA = ""
+	local minSegment = 99999
+	local maxSegment = 0
 
-	for ii = 1, #chnTbl do
-		local chain = chnTbl[ii]
-		if chain.stop == nil then
-			chain.stop = 999999
+	for i = 1, #chainTable do
+		local chain = chainTable[i]
+		if chain.sequenceEnd == nil then
+			chain.sequenceEnd = 999999
 		end
-		if chain.ctype ~= "M" then
-			print("chain " .. chain.chainid .. ", start = " .. chain.start .. ", end = " .. chain.stop .. ", length = " .. chain.len .. ", mutables = " .. chain.flagMutable)
-			print(chain.fasta)
-			gchn = gchn .. chain.fasta
-			chncnt = chncnt + 1
-			if chain.flagMutable > 0 then
-				mutchn = mutchn + 1
+		if chain.chainType ~= "M" then
+			print("Chain: " .. chain.chainID, "Start: " .. chain.sequenceStart, "End: " .. chain.sequenceEnd, "Length: " .. chain.sequenceLength, "Mutables: " .. chain.mutableCount)
+			print(chain.sequenceFASTA)
+			getChainSequenceFASTA = getChainSequenceFASTA .. chain.sequenceFASTA
+			chainCount = chainCount + 1
+			if chain.mutableCount > 0 then
+				mutableChainCount = mutableChainCount + 1
 			end
-			if chain.start < minseg then
-				minseg = chain.start
+			if chain.sequenceStart < minSegment then
+				minSegment = chain.sequenceStart
 			end
-			if chain.stop > maxseg then
-				maxseg = chain.stop
+			if chain.sequenceEnd > maxSegment then
+				maxSegment = chain.sequenceEnd
 			end
-			totlen = totlen + chain.len
-			if chain.len > maxlen then
-				maxlen = chain.len
+			totalLength = totalLength + chain.sequenceLength
+			if chain.sequenceLength > maxLength then
+				maxLength = chain.sequenceLength
 			end
 		else
-			print("ligand " .. chain.chainid .. ", segment = " .. chain.start)
+			print("Ligand: " .. chain.chainID, "Segment: " .. chain.sequenceStart)
 		end
 	end
 
 	-- Assume the worst if average length is under 25
 	local peptides = false
-	local newchn = {}
-	local avglen = totlen / chncnt
-	if avglen < 25 and mutchn == 0 then
+	local newChain = {}
+	local avgLength = totalLength / chainCount
+	if avgLength < 25 and mutableChainCount == 0 then
 		peptides = true
 		print("Multiple immutable peptides found")
 		print("These are likely fragments of a larger protein")
 		print("Combined sequence:")
-		print(gchn)
-		newchn = {ctype = "P", fasta = gchn, fastab = gchn, start = minseg, stop = maxseg, len = totlen, chainid = "A", flagMutable = totmut,}
+		print(getChainSequenceFASTA)
+		newChain = {chainType = "P", sequenceFASTA = getChainSequenceFASTA, backupFASTA = getChainSequenceFASTA, sequenceStart = minSegment, sequenceEnd = maxSegment, sequenceLength = totalLength, chainID = "A", mutableCount = totalMutableChainCount,}
 	end
+	-- [NOTE: This 'if' statement has no current purpose. It is not clear what the intended purpose was]
 	if peptides then
 		local mrgchn = {}
-		for ii = 1, #chnTbl do
-			-- TODO: rewrite the table
+		for i = 1, #chainTable do
+			-- To do: rewrite the table
 		end
 	end
 
-	while GetParameters(chnTbl, peptides, gchn, minseg, maxseg, totlen, totmut) do
-		for ii = 1, #chnTbl do
-			local chain = chnTbl[ii]
-			if chain.fasta ~= chain.fastab then
+	while GetParameters(chainTable, peptides, getChainSequenceFASTA, minSegment, maxSegment, totalLength, totalMutableChainCount) do
+		for i = 1, #chainTable do
+			local chain = chainTable[i]
+			if chain.sequenceFASTA ~= chain.backupFASTA then
 				print("--")
-				print("chain " .. chain.chainid .. " changed")
+				print("chain " .. chain.chainID .. " changed")
 
-				local old = chain.fastab
+				local old = chain.backupFASTA
 				changeNum = changeNum + 1
 				local start_time = os.time()
 
 				behavior.SetFiltersDisabled(true)
-				local sChg, sErr = setChain(chnTbl[ii])
+				local sChg, sErr = setChain(chainTable[i])
 				behavior.SetFiltersDisabled(false)
 
 				print("Segments changed = " .. sChg .. ", Errors = " .. sErr)
-				print("Old chain " .. chain.chainid .. ": ")
+				print("Old chain " .. chain.chainID .. ": ")
 				print(old)
-				print("New chain " .. chain.chainid .. ": ")
-				print(chain.fastab)
+				print("New chain " .. chain.chainID .. ": ")
+				print(chain.backupFASTA)
 			end
 		end
 	end
@@ -672,21 +677,19 @@ function cleanup(errmsg)
 	end
 	CLEANUPENTRY = true
 
-	print("---")
-
 	local reason
 	local start, stop, line, msg
 	if errmsg == nil then
-		reason = "complete"
+		reason = "Complete"
 	else
 		start, stop, line, msg = errmsg:find(":(%d+):%s()")
 		if msg ~= nil then
 			errmsg = errmsg:sub(msg, #errmsg)
 		end
 		if errmsg:find("Cancelled") ~= nil then
-			reason = "cancelled"
+			reason = "Cancelled"
 		else
-			reason = "error"
+			reason = "Error"
 		end
 	end
 
