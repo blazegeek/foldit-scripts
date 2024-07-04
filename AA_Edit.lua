@@ -54,18 +54,31 @@
 ]]--
 
 -- Globals
-scriptName = "AA Edit 2.0.2.1"
+scriptName = "AA Edit"
+scriptVersion = 2.0.2.1
+buildNumber = 1
 
-mutable = false -- true if any mutable segments found
+isMutable = false -- true if any mutable segments found
 
-AALONG = 1
-AACODE = 2 -- redundant for proteins, needed for DNA and RNA
-AAATOM = 3
-AATYPE = 4
+aaLong = 1 -- Unused variable
+aaCode = 2 -- Redundant for proteins, needed for DNA and RNA
+aaAtom = 3
+aaType = 4
 
--- Amino Acid names and abbeviations,
--- Third element is mid-chain atom count
-AANames = {
+--[[
+			Third element is mid-chain atom count
+
+			[NOTE: N-Terminus and C-Terminus amino acids will have different atom counts]
+
+					N-Terminus has an extra Hydrogen atom on the first Nitrogen atom
+					(This DOES NOT affect heavy atom count: the the extra H is the last atom)
+
+					C-Terminus has an extra Oxygen atom (and extra Hydrogen)
+					(This DOES affect heavy atom count: the beta carbon will be atom 6 instead of 5, shifting all other heaavy atoms up by one)
+]]--
+
+-- x = {"amino acid name", "single-letter-code", mid-chain atom count, "amino acid type"}
+aaNames = {
 	a = {"alanine", "a", 10, "P",},
 	c = {"cysteine", "c", 11, "P",},
 	d = {"aspartate", "d", 12, "P",},
@@ -87,17 +100,17 @@ AANames = {
 	w = {"tryptophan", "w", 24, "P",},
 	y = {"tyrosine", "y", 21, "P",},
 
--- Bonus! codes for ligands ("x" is common, but "unk" is historic)
+	-- Codes for ligands ("x" is common, but "unk" is historic)
 	x   = {"ligand", "x",  0, "M",},
 	unk = {"ligand", "x",  0, "M",},
 
--- Bonus!  RNA nucleotides
+	-- RNA nucleotides
 	ra = {"adenine", "a",  0, "R",},
 	rc = {"cytosine", "c",  0, "R",},
 	rg = {"guanine", "g",  0, "R",},
 	ru = {"uracil", "u",  0, "R",},
 
--- Bonus!  DNA nucleotides (as seen in PDB, not confirmed for Foldit)
+	-- DNA nucleotides (as seen in PDB, not confirmed for Foldit)
 	da = {"adenine", "a",  0, "D",},
 	dc = {"cytosine", "c",  0, "D",},
 	dg = {"guanine", "g",  0, "D",},
@@ -105,62 +118,62 @@ AANames = {
 }
 
 -- Modified AA if over this count
-AA_ATOM_MAX = 27
+aaAtomMax = 27
 
 -- Tables for converting external nucleobase codes to Foldit internal codes
-RNAin = {a = "ra", c = "rc", g = "rg", u = "ru",}
-DNAin = {a = "da", c = "dc", g = "dg", t = "dt",}
-Ctypes = {P = "protein", D = "DNA", R = "RNA", M = "ligand",}
+rnaIn = {a = "ra", c = "rc", g = "rg", u = "ru",}
+dnaIn = {a = "da", c = "dc", g = "dg", t = "dt",}
+cTypes = {P = "protein", D = "DNA", R = "RNA", M = "ligand",}
 
 -- Common section used by all safe functions
 safefun = {}
 
 --[[
-	CommonError -- common routine used by safe functions, checks for common errors checks for errors like bad segment and bad band index even for functions where they don't apply (efficiency not a key concern here)
+	commonError -- common routine used by safe functions, checks for common errors checks for errors like bad segment and bad band index even for functions where they don't apply (efficiency not a key concern here)
 	Any error that appears more than once gets tested here. First return codes may not be unique.
 ]]--
 
-safefun.CommonError = function(errmsg)
-	local BADSEG = "Segment index out of bounds"
-	local ARGCNT = "Expected %d+ arguments."
-	local BADARG = "Bad argument #%d+ to '%?' (%b())"
-	local EXPECT = "Expected, Got"
-	local BADATOM = "Atom number out of bounds"
-	local BADBAND = "Band index out of bounds"
-	local BADSYMM = "Symmetry index out of bounds"
-	local BADACID = "Invalid argument, unknown AA code"
+safefun.commonError = function(errmsg)
+	local badSegment = "Segment index out of bounds"
+	local agrumentCount = "Expected %d+ arguments."
+	local badArgument = "Bad argument #%d+ to '%?' (%b())"
+	local notExpected = "Expected, Got"
+	local badAtom = "Atom number out of bounds"
+	local badBand = "Band index out of bounds"
+	local badSymmetry = "Symmetry index out of bounds"
+	local badAminoAcid = "Invalid argument, unknown AA code"
 
-	local errp, errq = errmsg:find(BADSEG)
+	local errp, errq = errmsg:find(badSegment)
 	if errp ~= nil then
 		return -1, errmsg
 	end
 
-	-- "Bad Argument" messages include argument type errors and some types of argument value errors.
+	-- "Bad Argument" messages include: argument type errors and some types of argument value errors.
 	-- Trap only the argument type errors here
-	local errp, errq, errd = errmsg:find(BADARG)
+	local errp, errq, errd = errmsg:find(badArgument)
 	if errp ~= nil then
-		local errp2 = errd:find(EXPECT)
+		local errp2 = errd:find(notExpected)
 		if errp2 ~= nil then
-			return -997, errmsg -- argument type error
+			return -997, errmsg -- Argument type error
 		end
 	end
-	local errp, errq = errmsg:find(ARGCNT)
+	local errp, errq = errmsg:find(agrumentCount)
 	if errp ~= nil then
 		return -998, errmsg
 	end
-	local errp, errq = errmsg:find(BADATOM)
+	local errp, errq = errmsg:find(badAtom)
 	if errp ~= nil then
 		return -2, errmsg
 	end
-	local errp, errq = errmsg:find(BADBAND)
+	local errp, errq = errmsg:find(badBand)
 	if errp ~= nil then
 		return -3, errmsg
 	end
-	local errp, errq = errmsg:find(BADACID)
+	local errp, errq = errmsg:find(badAminoAcid)
 	if errp ~= nil then
 		return -2, errmsg
 	end
-	local errp, errq = errmsg:find(BADSYMM)
+	local errp, errq = errmsg:find(badSymmetry)
 	if errp ~= nil then
 		return -3, errmsg
 	end
@@ -181,7 +194,7 @@ structure.SafeGetAminoAcid = function(...)
 	if good then
 		return 0, errmsg
 	else
-		local crc, err2 = safefun.CommonError(errmsg)
+		local crc, err2 = safefun.commonError(errmsg)
 		if crc ~= 0 then
 			return crc, err2
 		end
@@ -189,7 +202,7 @@ structure.SafeGetAminoAcid = function(...)
 	end
 end
 
-function GetAA(seg)
+function getAA(seg)
 	local good, errmsg = structure.SafeGetAminoAcid(seg)
 	if good ~= 0 then
 		errmsg = "unk"
@@ -198,95 +211,95 @@ function GetAA(seg)
 end
 
 --[[
-	Begin protNfo Beta package version 0.2a
+	Begin proteinInfo Beta package version 0.2a
 
-	version 0.2a is packaged as a psuedo-class or psuedo-module containing a mix of data fields and functions
+	Version 0.2a is packaged as a psuedo-class or psuedo-module containing a mix of data fields and functions
 		* All entries must be terminated with a comma to keep Lua happy
 		* The commas aren't necessary if only function definitions are present
-		* Removed some items found in 0.1 not needed here, added N-terminal and C-terminal checks, first and last analysis
-		* This version depends on the external AANames table and associated codes, so still a work in progress
+		* Removed some items found in 0.1 not needed here, added N-terminus and C-terminus checks, first and last analysis
+		* This version depends on the external aaNames table and associated codes, so still a work in progress
 
-	version 0.2a contains a quick fix for proline at N-terminal
+	Version 0.2a contains a quick fix for Proline at N-terminus
 		* Need to reconcile this version with the more extensive version in print protein
 ]]--
 
-protNfo = {
-	PROTEIN = "P",
-	LIGAND = "M",
-	RNA = "R",
-	DNA = "D",
-	UNKNOWN_AA = "x",
-	UNKNOWN_BASE = "xx",
-	CYSTEINE_AA = "c",
-	PROLINE_AA = "p",
-	aa = {}, -- Amino Acid codes
-	ss = {}, -- Secondary Structure codes
-	atom = {}, -- Atom counts
-	mute = {}, -- Mutable flag
+proteinInfo = {
+	typeProtein = "P",
+	typeLigand = "M",
+	typeRNA = "R",
+	typeDNA = "D",
+	unknownAA = "x",
+	unknownNucleobase = "xx",
+	aaCysteine = "c",
+	aaProline = "p",
+	aaCode = {}, -- Amino Acid codes
+	ssCode = {}, -- Secondary Structure codes
+	atomCount = {}, -- Atom counts
+	flagMutable = {}, -- Mutable flag
 	ctype = {}, -- Segment type - P, M, R, D
-	first = {}, -- True if segment is first in chain
-	last = {}, -- True if segment is last in chain
-	nterm = {}, -- True if protein and if n-terminal
-	cterm = {}, -- True if protein and if c-terminal
-	fastac = {}, -- External code for FASTA-style output
+	isFirst = {}, -- True if segment is first in chain
+	isLast = {}, -- True if segment is last in chain
+	isNTerminus = {}, -- True if protein and if n-terminal
+	isCTerminus = {}, -- True if protein and if c-terminal
+	outputFASTA = {}, -- External code for FASTA-style output
 
-	setNfo = function()
+	setInfo = function()
 		local segCnt = structure.GetCount()
-		--  initial scan: retrieve basic information from Foldit
+		-- Initial scan: retrieve basic information from Foldit
 		for ii = 1, segCnt do
-			local nterm = false
-			local cterm = false
+			local isNTerminus = false
+			local isCTerminus = false
 
-			protNfo.aa[#protNfo.aa + 1] = GetAA(ii)
-			protNfo.ss[#protNfo.ss + 1] = structure.GetSecondaryStructure(ii)
-			protNfo.atom[#protNfo.atom + 1] = structure.GetAtomCount(ii)
-			protNfo.mute[#protNfo.mute + 1] = structure.IsMutable(ii)
-			local aatab = AANames[protNfo.aa[ii]]
+			proteinInfo.aaCode[#proteinInfo.aaCode + 1] = getAA(ii)
+			proteinInfo.ssCode[#proteinInfo.ssCode + 1] = structure.GetSecondaryStructure(ii)
+			proteinInfo.atomCount[#proteinInfo.atomCount + 1] = structure.GetAtomCount(ii)
+			proteinInfo.flagMutable[#proteinInfo.flagMutable + 1] = structure.IsMutable(ii)
+			local aatab = aaNames[proteinInfo.aaCode[ii]]
 			if aatab ~= nil then
-				protNfo.ctype[#protNfo.ctype + 1] = aatab[AATYPE]
+				proteinInfo.ctype[#proteinInfo.ctype + 1] = aatab[aaType]
 
 				-- Special case for puzzles 879, 1378b, and similar (if unknown amino acid, but secondary structure is not ligand, mark it as protein) [Segment 134 in puzzle 879 is the example]
-				if protNfo.ctype[ii] == protNfo.LIGAND and protNfo.ss[ii] ~= protNfo.LIGAND then
-					protNfo.ctype[ii] = protNfo.PROTEIN
+				if proteinInfo.ctype[ii] == proteinInfo.typeLigand and proteinInfo.ssCode[ii] ~= proteinInfo.typeLigand then
+					proteinInfo.ctype[ii] = proteinInfo.typeProtein
 				end
 			else
-				protNfo.ctype[#protNfo.ctype + 1] = protNfo.LIGAND
-				aa = protNfo.UNKNOWN_AA
+				proteinInfo.ctype[#proteinInfo.ctype + 1] = proteinInfo.typeLigand
+				aaCode = proteinInfo.unknownAA
 			end
 
 			-- For proteins: determine n-terminal and c-terminal based on atom count
-			if protNfo.ctype[ii] == protNfo.PROTEIN then
+			if proteinInfo.ctype[ii] == proteinInfo.typeProtein then
 				local ttyp = ""
 				local noteable = false
-				local ac = protNfo.atom[ii]  -- actual atom count
-				local act = aatab[AAATOM]    -- reference mid-chain atom count
-					if ac ~= act or (protNfo.aa[ii] == protNfo.CYSTEINE_AA and ac == act) then
+				local ac = proteinInfo.atomCount[ii]  -- actual atom count
+				local act = aatab[aaAtom]    -- reference mid-chain atom count
+					if ac ~= act or (proteinInfo.aaCode[ii] == proteinInfo.aaCysteine and ac == act) then
 						ttyp = "non-standard amino acid"
 						if ac == act + 2 then
 							ttyp = "N-terminal"
-							nterm = true
+							isNTerminus = true
 							notable = true
 						elseif ac == act + 1 then
 							ttyp = "C-terminal"
-							cterm = true
+							isCTerminus = true
 							notable = true
-						elseif protNfo.aa[ii] == protNfo.PROLINE_AA and ac == act + 3 then
+						elseif proteinInfo.aaCode[ii] == proteinInfo.aaProline and ac == act + 3 then
 							ttyp = "N-terminal"
-							nterm = true
+							isNTerminus = true
 							notable = true
 						end
-						if protNfo.aa[ii] == protNfo.CYSTEINE_AA then
+						if proteinInfo.aaCode[ii] == proteinInfo.aaCysteine then
 							local ds = current.GetSegmentEnergySubscore(ii, "Disulfides")
 							if ds ~= 0 and math.abs(ds) > 0.01 then
-								nterm = false
-								cterm = false
+								isNTerminus = false
+								isCTerminus = false
 								ttyp = "Disulfide bridge"
 								if ac == act + 1 then
 									ttyp = "N-terminal"
-									nterm = true
+									isNTerminus = true
 								elseif ac == act then
 									ttyp = "C-terminal"
-									cterm = true
+									isCTerminus = true
 								end
 								notable = true
 							else
@@ -295,76 +308,76 @@ protNfo = {
 							end
 						end
 						if notable then
-							print(ttyp .. " detected at segment " .. ii .. ", amino acid = \'" .. protNfo.aa[ii] .. "\', atom count = " .. ac .. ", reference count = " .. act .. ", secondary structure = " .. protNfo.ss[ii])
+							print(ttyp .. " detected at segment " .. ii .. ", amino acid = \'" .. proteinInfo.aaCode[ii] .. "\', atom count = " .. ac .. ", reference count = " .. act .. ", secondary structure = " .. proteinInfo.ssCode[ii])
 						end
 					end
 			end
-			if  protNfo.ctype[ii] == protNfo.LIGAND then
+			if  proteinInfo.ctype[ii] == proteinInfo.typeLigand then
 				print("Ligand detected at segment " .. ii)
 			end
-			protNfo.nterm[#protNfo.nterm + 1] = nterm
-			protNfo.cterm[#protNfo.cterm + 1] = cterm
+			proteinInfo.isNTerminus[#proteinInfo.isNTerminus + 1] = isNTerminus
+			proteinInfo.isCTerminus[#proteinInfo.isCTerminus + 1] = isCTerminus
 
-			protNfo.fastac[#protNfo.fastac + 1] = aatab[AACODE]
+			proteinInfo.outputFASTA[#proteinInfo.outputFASTA + 1] = aatab[aaCode]
 		end
 
 		-- Rescan to determine first and last in chain for all types
 		-- It's necessary to "peek" at neighbors for DNA and RNA
 		for ii = 1, segCnt do
-			local nterm = protNfo.nterm[ii]
-			local cterm = protNfo.cterm[ii]
-			local first = false
-			local last = false
+			local isNTerminus = proteinInfo.isNTerminus[ii]
+			local isCTerminus = proteinInfo.isCTerminus[ii]
+			local isFirst = false
+			local isLast = false
 			if ii == 1 then
-				first = true
+				isFirst = true
 			end
 			if ii == segCnt then
-				last = true
+				isLast = true
 			end
-			if protNfo.ctype[ii] == protNfo.PROTEIN then
-				if protNfo.nterm[ii] then
-					first = true
+			if proteinInfo.ctype[ii] == proteinInfo.typeProtein then
+				if proteinInfo.isNTerminus[ii] then
+					isFirst = true
 				end
-				if protNfo.cterm[ii] then
-					last = true
+				if proteinInfo.isCTerminus[ii] then
+					isLast = true
 				end
 				-- kludge for cases where binder target doesn't have an identifiable C terminal
 				if ii < segCnt then
-					if   protNfo.ctype[ii] == protNfo.PROTEIN or (protNfo.ctype[ii] == protNfo.PROTEIN and protNfo.nterm[ii + 1]) then
-						last = true
+					if   proteinInfo.ctype[ii] == proteinInfo.typeProtein or (proteinInfo.ctype[ii] == proteinInfo.typeProtein and proteinInfo.isNTerminus[ii + 1]) then
+						isLast = true
 					end
 				end
 
 				-- Special case for puzzles 879, 1378b, and similar (if modified AA ends or begins a chain, mark it as C-terminal or N-terminal)
 				-- Hypothetical: no way to test so far!
-				if AANames[protNfo.aa[ii]][AACODE] == protNfo.UNKNOWN_AA then
-					if ii > 1 and protNfo.ctype[ii - 1] ~= protNfo.ctype[ii] then
-						first = true
-						protNfo.nterm[ii] = true
+				if aaNames[proteinInfo.aaCode[ii]][aaCode] == proteinInfo.unknownAA then
+					if ii > 1 and proteinInfo.ctype[ii - 1] ~= proteinInfo.ctype[ii] then
+						isFirst = true
+						proteinInfo.isNTerminus[ii] = true
 						print("Non-standard amino acid at segment " .. ii .. " marked as N-terminal")
 					end
-					if ii < segCnt and protNfo.ctype[ii + 1] ~= protNfo.ctype[ii] then
-						last = true
-						protNfo.cterm[ii] = true
+					if ii < segCnt and proteinInfo.ctype[ii + 1] ~= proteinInfo.ctype[ii] then
+						isLast = true
+						proteinInfo.isCTerminus[ii] = true
 						print("Non-standard amino acid at segment " .. ii .. " marked as C-terminal")
 					end
 				end
-			elseif protNfo.ctype[ii] == protNfo.DNA or protNfo.ctype[ii] == protNfo.RNA then
-				if ii > 1 and protNfo.ctype[ii - 1] ~= protNfo.ctype[ii] then
-					first = true
+			elseif proteinInfo.ctype[ii] == proteinInfo.typeDNA or proteinInfo.ctype[ii] == proteinInfo.typeRNA then
+				if ii > 1 and proteinInfo.ctype[ii - 1] ~= proteinInfo.ctype[ii] then
+					isFirst = true
 				end
-				if ii < segCnt and protNfo.ctype[ii + 1] ~= protNfo.ctype[ii] then
-					last = true
+				if ii < segCnt and proteinInfo.ctype[ii + 1] ~= proteinInfo.ctype[ii] then
+					isLast = true
 				end
 			else -- ligand
-				first = true
-				last = true
+				isFirst = true
+				isLast = true
 			end
-			protNfo.first[#protNfo.first + 1] = first
-			protNfo.last[#protNfo.last + 1] = last
+			proteinInfo.isFirst[#proteinInfo.isFirst + 1] = isFirst
+			proteinInfo.isLast[#proteinInfo.isLast + 1] = isLast
 		end
-	end, -- end function setNfo()
-} --  end protNfo Beta package version 0.2
+	end, -- end function setInfo()
+} --  end proteinInfo Beta package version 0.2
 --  end of globals section
 
 function getChains()
@@ -374,7 +387,7 @@ function getChains()
 	Most Foldit puzzles contain only a single protein (peptide) chain. A few puzzles contain ligands, and some puzzles have had two
 	protein chains. Foldit puzzles may also contain RNA or DNA.
 
-	For proteins, the atom count can be used to identify the first (N terminal) and last (C terminal) ends of the chain. The AANames table has the mid-chain atom counts for each amino acid.
+	For proteins, the atom count can be used to identify the first (N terminal) and last (C terminal) ends of the chain. The aaNames table has the mid-chain atom counts for each amino acid.
 
 	Cysteine is a special case, since the presence of a disulfide bridge also changes the atom count.
 
@@ -391,7 +404,7 @@ function getChains()
 	stop - Foldit segment number of sequence end
 	len - length of sequence
 	chainid - chain id assigned to entry, "A", "B", "C", and so on
-	mute - number of mutable segments
+	flagMutable - number of mutable segments
 
 	For DNA and RNA, fasta and fastab contain single-letter codes, so "a" for adenine. The codes overlap the amino acid codes (for example, "a" for alanine). The DNA and RNA codes must be converted to the appropriate two-letter codes Foldit uses internally, for example "ra" for RNA adenine and "da" for DNA adenine.
 
@@ -406,24 +419,24 @@ function getChains()
 	local segCnt = structure.GetCount()
 
 	for ii = 1, segCnt do
-		if protNfo.first[ii] then
+		if proteinInfo.isFirst[ii] then
 			chindx = chindx + 1
 			chainz[chindx] = {}
 			curchn = chainz[chindx]
-			curchn.ctype = protNfo.ctype[ii]
+			curchn.ctype = proteinInfo.ctype[ii]
 			curchn.fasta = ""
 			curchn.start = ii
 			curchn.chainid = chainid[chindx]
-			curchn.mute = 0
+			curchn.flagMutable = 0
 			curchn.len = 0
 		end
 
-		curchn.fasta = curchn.fasta .. protNfo.fastac[ii]
-		if protNfo.mute[ii] then
-			curchn.mute = curchn.mute + 1
+		curchn.fasta = curchn.fasta .. proteinInfo.outputFASTA[ii]
+		if proteinInfo.flagMutable[ii] then
+			curchn.flagMutable = curchn.flagMutable + 1
 		end
 
-		if protNfo.last[ii] then
+		if proteinInfo.isLast[ii] then
 			curchn.stop = ii
 			curchn.len = curchn.stop -(curchn.start - 1)
 		end
@@ -446,52 +459,52 @@ function setChain(chain)
 		local oType = chain.fastab:sub(ii, ii)
 
 		-- for DNA and RNA, convert FASTA to Foldit
-		if chain.ctype == protNfo.DNA then
-			sType = DNAin[sType]
+		if chain.ctype == proteinInfo.typeDNA then
+			sType = dnaIn[sType]
 				if sType == nil then
-					sType = protNfo.UNKNOWN_BASE
+					sType = proteinInfo.unknownNucleobase
 				end
-				oType = DNAin[oType]
+				oType = dnaIn[oType]
 				if oType == nil then
-					oType = protNfo.UNKNOWN_BASE
+					oType = proteinInfo.unknownNucleobase
 				end
-		elseif chain.ctype == protNfo.RNA then
-			sType = RNAin[sType]
+		elseif chain.ctype == proteinInfo.typeRNA then
+			sType = rnaIn[sType]
 			if sType == nil then
-				sType = protNfo.UNKNOWN_BASE
+				sType = proteinInfo.unknownNucleobase
 			end
-			oType = RNAin[oType]
+			oType = rnaIn[oType]
 			if oType == nil then
-				oType = protNfo.UNKNOWN_BASE
+				oType = proteinInfo.unknownNucleobase
 			end
 		end
 
 		if sType ~= oType then
-			local sName = AANames[sType]
+			local sName = aaNames[sType]
 			if sName ~= nil then
-				if protNfo.mute[ii + offset] then
+				if proteinInfo.flagMutable[ii + offset] then
 					structure.SetAminoAcid(ii + offset, sType)
 					local newaa = structure.GetAminoAcid(ii + offset)
 					if newaa == sType then
 						changes = changes + 1
-						fastan = fastan .. AANames[sType][AACODE]
+						fastan = fastan .. aaNames[sType][aaCode]
 					else
 						print("Segment " .. ii + offset .. " (" .. chain.chainid .. ":" ..  ii ..	") mutation to type \"" .. sType .. "\" failed")
 						errz = errz + 1
-						fastan = fastan .. AANames[oType][AACODE]
+						fastan = fastan .. aaNames[oType][aaCode]
 					end
 				else
 					print("Segment " .. ii + offset .." (" .. chain.chainid .. ":" ..  ii .. ") is not mutable, skipping change to type \""	.. sType .. "\"")
 					errz = errz + 1
-					fastan = fastan .. AANames[oType][AACODE]
+					fastan = fastan .. aaNames[oType][aaCode]
 				end
 			else
 				print("Segment " .. ii + offset .. " ("	.. chain.chainid .. ":" ..  ii ..	"), skipping invalid type \""	.. sType ..	"\"")
 				errz = errz + 1
-				fastan = fastan .. AANames[oType][AACODE]
+				fastan = fastan .. aaNames[oType][aaCode]
 			end
 		else
-			fastan = fastan .. AANames[oType][AACODE]
+			fastan = fastan .. aaNames[oType][aaCode]
 		end
 	end
 	chain.fasta = fastan
@@ -510,13 +523,13 @@ function GetParameters(chnz, peptides, gchn, minseg, maxseg, totlen, totmut)
 	dlog.chz  = dialog.AddLabel(#chnz .. " chains")
 	for ii = 1, #chnz do
 		local chain = chnz[ii]
-		dlog["chn" .. ii .. "l1"] = dialog.AddLabel("Chain " .. chain.chainid .. " ("	.. Ctypes[chnz[ii].ctype] .. ")")
-		dlog["chn" .. ii .. "l2"] = dialog.AddLabel ("Segments " .. chain.start ..	"-"	.. chain.stop .. ", mutables = " .. chain.mute ..	", length = "	.. chain.len)
+		dlog["chn" .. ii .. "l1"] = dialog.AddLabel("Chain " .. chain.chainid .. " ("	.. cTypes[chnz[ii].ctype] .. ")")
+		dlog["chn" .. ii .. "l2"] = dialog.AddLabel ("Segments " .. chain.start ..	"-"	.. chain.stop .. ", mutables = " .. chain.flagMutable ..	", length = "	.. chain.len)
 		dlog["chn" .. ii .. "ps"] = dialog.AddTextbox("Seq", chain.fasta)
 	end
 
 	dlog.u0 = dialog.AddLabel("")
-	if mutable then
+	if isMutable then
 		dlog.u1 = dialog.AddLabel("Usage: click in text box, ")
 		dlog.u2 = dialog.AddLabel("then use select all and copy, cut, or paste")
 		dlog.u3 = dialog.AddLabel("to save or change primary structure")
@@ -526,7 +539,7 @@ function GetParameters(chnz, peptides, gchn, minseg, maxseg, totlen, totmut)
 		dlog.u3 = dialog.AddLabel("to save primary structure")
 	end
 	dlog.w0 = dialog.AddLabel("")
-	if mutable then
+	if isMutable then
 		dlog.w1 = dialog.AddLabel("Windows: Ctrl + A = select all")
 		dlog.w2 = dialog.AddLabel("Windows: Ctrl + X = cut")
 		dlog.w3 = dialog.AddLabel("Windows: Ctrl + C = copy")
@@ -537,7 +550,7 @@ function GetParameters(chnz, peptides, gchn, minseg, maxseg, totlen, totmut)
 	end
 	dlog.z0 = dialog.AddLabel("")
 
-	if mutable then
+	if isMutable then
 		dlog.ok = dialog.AddButton("Change" , 1)
 	end
 	dlog.exit = dialog.AddButton("Exit" , 0)
@@ -557,11 +570,11 @@ function main()
 	print("Puzzle: " .. puzzle.GetName())
 	print("Track: " .. ui.GetTrackName())
 
-	protNfo.setNfo()
+	proteinInfo.setInfo()
 
 	for ii = 1, structure.GetCount() do
-		if protNfo.mute[ii] == true then
-			mutable = true
+		if proteinInfo.flagMutable[ii] == true then
+			isMutable = true
 			break
 		end
 	end
@@ -586,11 +599,11 @@ function main()
 			chain.stop = 999999
 		end
 		if chain.ctype ~= "M" then
-			print("chain " .. chain.chainid .. ", start = " .. chain.start .. ", end = " .. chain.stop .. ", length = " .. chain.len .. ", mutables = " .. chain.mute)
+			print("chain " .. chain.chainid .. ", start = " .. chain.start .. ", end = " .. chain.stop .. ", length = " .. chain.len .. ", mutables = " .. chain.flagMutable)
 			print(chain.fasta)
 			gchn = gchn .. chain.fasta
 			chncnt = chncnt + 1
-			if chain.mute > 0 then
+			if chain.flagMutable > 0 then
 				mutchn = mutchn + 1
 			end
 			if chain.start < minseg then
@@ -618,7 +631,7 @@ function main()
 		print("These are likely fragments of a larger protein")
 		print("Combined sequence:")
 		print(gchn)
-		newchn = {ctype = "P", fasta = gchn, fastab = gchn, start = minseg, stop = maxseg, len = totlen, chainid = "A", mute = totmut,}
+		newchn = {ctype = "P", fasta = gchn, fastab = gchn, start = minseg, stop = maxseg, len = totlen, chainid = "A", flagMutable = totmut,}
 	end
 	if peptides then
 		local mrgchn = {}
