@@ -6,13 +6,13 @@ buildNumber = 2
 --[[
 Walking Rebuild v4 - Sphered
 All options at end
-Modified by TvdL, made V2 and using my modules.
-Options are now interactive
-ver 1.6.0 by Bruno Kestemont added inward, outward and slice ward walks
-ver 1.6.1 debugged slices
-TO DO: bug see DEBUG lines
+Modified by TvdL, made with Lua v2 and using my modules.
 
-ver 1.6.2: Modified maximum rebuild length to actual number of segments, added slider to adjust max iterations
+Options are now interactive
+v1.6.0 by Bruno Kestemont added inward, outward and slice ward walks
+v1.6.1 debugged slices
+TO DO: bug see DEBUG lines
+v1.6.2: Modified maximum rebuild length to actual number of segments, added slider to adjust max iterations
 ]]--
 
 function down(x)
@@ -36,8 +36,7 @@ function CheckCI()
 	dialog.Show(ask)
 end
 
--- Score functions
-function Score(pose)
+function getScore(pose)
 	if pose == nil then
 		pose = current
 	end
@@ -55,7 +54,7 @@ function Score(pose)
 	end
 end
 
-function SegScore(pose)
+function segmentScore(pose)
 	if pose == nil then
 		pose = current
 	end
@@ -66,29 +65,29 @@ function SegScore(pose)
 	return total
 end
 
-function RBScore()
-	return Score(recentbest)
+function scoreRecentBest()
+	return getScore(recentbest)
 end
 
-function round3(x) --cut all afer 3rd place
+function round3(x)
 		return x - x % 0.001
 end
 
-function SaveBest()
-	local g = Score() - bestScore
+function saveBest()
+	local g = getScore() - bestScore
 	if g > 0 then
 		if g > 0.001 then
 			print("Gained another " .. round3(g) .. " points")
 		end
-		bestScore = Score()
+		bestScore = getScore()
 		save.Quicksave(3)
 	end
 end
 
--- Wiggle function
+-- doWiggle function
 -- Optimized due to Susumes ideas
 -- Note the extra parameter to be used if only selected parts must be done
-function Wiggle(how, iters, minppi, onlyselected)
+function doWiggle(how, iters, minppi, onlyselected)
 	--score conditioned recursive wiggle/shake
 	--fixed a bug, absolute difference is the threshold now
 	if how == nil then
@@ -104,23 +103,23 @@ function Wiggle(how, iters, minppi, onlyselected)
 		onlyselected = false
 	end
 
-	local wf = 1
-
+	local wiggleFactor = 1
+	-- [NOTE] This is redundant
 	if maxCI then
-		wf = WF
+		wiggleFactor = 1
 	end
-	local sp = Score()
+	local sp = getScore()
 	if onlyselected then
 		if how == "s" then
 			-- Shake is not considered to do much in second or more rounds
 			structure.ShakeSidechainsSelected(1)
 			return
 		elseif how == "wb" then
-			structure.WiggleSelected(2 * wf * iters, true, false)
+			structure.WiggleSelected(2 * wiggleFactor * iters, true, false)
 		elseif how == "ws" then
-			structure.WiggleSelected(2 * wf * iters, false, true)
+			structure.WiggleSelected(2 * wiggleFactor * iters, false, true)
 		elseif how == "wa" then
-			structure.WiggleSelected(2 * wf * iters, true, true)
+			structure.WiggleSelected(2 * wiggleFactor * iters, true, true)
 		end
 	else
 		structure.DeselectAll()
@@ -129,11 +128,11 @@ function Wiggle(how, iters, minppi, onlyselected)
 			structure.ShakeSidechainsAll(1)
 			return
 		elseif how == "wb" then
-			structure.WiggleAll(2 * wf * iters, true, false)
+			structure.WiggleAll(2 * wiggleFactor * iters, true, false)
 		elseif how == "ws" then
-			structure.WiggleAll(2 * wf * iters, false, true)
+			structure.WiggleAll(2 * wiggleFactor * iters, false, true)
 		elseif how == "wa" then
-			structure.WiggleAll(2 * wf * iters, true, true)
+			structure.WiggleAll(2 * wiggleFactor * iters, true, true)
 		end
 	end
 end
@@ -783,7 +782,7 @@ function Gibaj(jak, iters, minppi) --score conditioned recursive wiggle/shake
  end
  if iters > 0 then
 	iters = iters - 1
-	local sp = Score()
+	local sp = getScore()
 	if jak == "s" then
 		structure.ShakeSidechainsSelected(1)
 	elseif jak == "wb" then
@@ -796,7 +795,7 @@ function Gibaj(jak, iters, minppi) --score conditioned recursive wiggle/shake
 		selection.DeselectAll()
 		structure.WiggleAll(1, true, true)
 	end
-	local ep = Score()
+	local ep = getScore()
 	local ig = ep - sp
 	if ig > minppi then Gibaj(jak, iters, minppi) end
  end
@@ -830,9 +829,9 @@ function Lws(minGain) --score conditioned local wiggle,
 		minGain = 1
 	end
 	repeat --wiggles selected segments
-		local scoreStart = Score()
+		local scoreStart = getScore()
 		structure.LocalWiggleSelected(2, true, true)
-		local scoreEnd = Score()
+		local scoreEnd = getScore()
 		local wiggleGain = scoreEnd - scoreStart
 		if wiggleGain < 0 then
 			recentbest.Restore()
@@ -868,25 +867,25 @@ function Rebuild(maxIters) --local rebuild until any change
 		maxIters = 5
 	end
 	local rebuildScore = -10000
-	local startScore = Score()
+	local startScore = getScore()
 	save.Quicksave(9)
 	for j = 1, nRB do
 		local i = 0
 		repeat
-			local s = Score()
+			local s = getScore()
 			i = i + 1
 			if i > maxIters then
 				break
 			end --impossible to rebuild!
 			structure.RebuildSelected(i)
-		until Score() ~= s
-		if Score() > rebuildScore then
+		until getScore() ~= s
+		if getScore() > rebuildScore then
 			save.Quicksave(9)
-			rebuildScore = Score()
+			rebuildScore = getScore()
 		end
 	end
 	save.Quickload(9)
-	if Score() == startScore then
+	if getScore() == startScore then
 		return false
 	else
 		return true
@@ -898,19 +897,19 @@ function LocalRebuild(segStart, segEnd, maxIters, sphere, lws, useBlueFuze)
 		segStart, segEnd = segEnd, segStart
 	end
 	if segStart ~= segEnd then
-		print("Working on sgmnts " .. segStart .. "-" .. segEnd .. " from " .. round3(Score()))
+		print("Working on sgmnts " .. segStart .. "-" .. segEnd .. " from " .. round3(getScore()))
 	else
-		print("Working on sgmnt " .. segStart .. " from " .. round3(Score()))
+		print("Working on sgmnt " .. segStart .. " from " .. round3(getScore()))
 	end
 	selection.DeselectAll()
 	selection.SelectRange(segStart, segEnd)
-	local sc = Score()
+	local sc = getScore()
 	local ok = Rebuild(maxIters)
 	if ok then
 		SelectAround(segStart, segEnd, sphere, true)
 		AfterRebuild(lws, useBlueFuze, true)
 	end
-	local gain = Score() - sc
+	local gain = getScore() - sc
 	if gain > 0 then
 		save.Quicksave(3)
 		print("Rebuild accepted! Gain: ", gain)
@@ -934,7 +933,7 @@ function Build(worklist, len, maxIters, sphere, lws, useBlueFuze)
 end
 
 function startWalkingRebuild(worklist, startLength, endLength, maxIters, sphere, lws, useBlueFuze)
-	local sscore = Score()
+	local sscore = getScore()
 	print("Walking Rebuild started. Score: ", round3(sscore))
 	freeze.UnfreezeAll()
 	selection.DeselectAll()
@@ -948,7 +947,7 @@ function startWalkingRebuild(worklist, startLength, endLength, maxIters, sphere,
 		print("\nTrying rebuilds of length: " .. i)
 		Build(worklist, i, maxIters, sphere, lws, useBlueFuze)
 	end
-	print("Total rebuild gain: ", round3(Score() - sscore))
+	print("Total rebuild gain: ", round3(getScore() - sscore))
 	cleanup("Finishing")
 end
 
@@ -1034,7 +1033,7 @@ function main()
 	Randomseed=os.time()%1000000
 	nRB = 1 --Nr of different rebuilds to be made
 	-- New WiggleFactor
-	WF = 1
+	wiggleFactor = 1
 
 	-- On request of gmn
 	CIfactor = 1
