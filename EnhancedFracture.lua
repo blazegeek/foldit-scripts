@@ -1,17 +1,17 @@
 scriptName = "Enchanced Fracture"
 scriptVersion = 1.0
-scriptBuild = 123
+scriptBuild = 124
 
 function trunc(x)
 	return math.floor(x * 1000) / 1000
 end
 
-function setCI(ci)
-	return behavior.SetClashImportance(ci)
+function setCI(targetCI)
+	return behavior.SetClashImportance(targetCI)
 end
 
-function getSS(sn)
-	return structure.GetSecondaryStructure(sn)
+function getSS(segmentNumber)
+	return structure.GetSecondaryStructure(segmentNumber)
 end
 
 function checkScore()
@@ -118,7 +118,7 @@ function performWiggles(wiggleHow, wiggleIterations, wiggleRuns, minPPI)
 		wiggleRuns = wiggleRuns - 1
 		local currentScore = checkScore()
 		if wiggleHow == "shakeSidechains" then
-			if allAlanine == false then
+			if (allAlanine == false)  or (hasDensity == true) then
 				structure.ShakeSidechainsAll(1)
 			end
 		elseif wiggleHow == "wiggleBackbone" then
@@ -452,7 +452,7 @@ function dialogPreset()
 	if rebuildIterations == nil then
 		rebuildIterations = 5
 	end
-	opt = dialog.CreateDialog(scriptName .. " build " .. scriptBuild)
+	opt = dialog.CreateDialog(scriptName .. " v" .. scriptVersion .. " build " .. scriptBuild)
 	opt.doCustom = dialog.AddCheckbox("Custom", false)
 	opt.labelPresets = dialog.AddLabel("Presets:")
 	opt.maxCI = dialog.AddSlider("Maximum CI:", maxCI, 0.1, 1, 2)
@@ -1831,7 +1831,7 @@ function localBands()
 		checkBest()
 		checkAlanine()
 	else
-		if allAlanine == false then
+		if (allAlanine == false) and (hasDensity == false) then
 			setCI(maxCI)
 			structure.ShakeSidechainsSelected(1)
 			checkBest()
@@ -2352,7 +2352,7 @@ function performRainbowRebuild()
 							structure.MutateSidechainsSelected(1)
 							checkBest()
 						else
-							if allAlanine == false then
+							if (allAlanine == false) and (hasDensity == false) then
 								setCI(.2)
 								structure.ShakeSidechainsSelected(1)
 								checkBest()
@@ -2826,7 +2826,7 @@ function performDeepRebuild()
 							setCI(.87)
 							structure.MutateSidechainsSelected(1)
 						else
-							if allAlanine == false then
+							if (allAlanine == false) and (hasDensity == false) then
 								setCI(.2)
 								structure.ShakeSidechainsSelected(1)
 							end
@@ -2834,7 +2834,7 @@ function performDeepRebuild()
 						checkBest()
 						setCI(maxCI)
 						if doWiggleSidechains then
-							performWiggles("wiggleSidechains", 14, 1)
+							performWiggles("wiggleSidechains", 8, 1)
 
 						end
 						if doLocalWiggle then
@@ -3196,7 +3196,7 @@ function main()
 	checkLock()
 	allAlanine = checkAlanine()
 
-	print(scriptName, "build: " .. scriptBuild)
+	print(scriptName.. " v" .. scriptVersion .. " build " .. scriptBuild)
 	print("")
 
 	if lockd > numSegments - 1 then
