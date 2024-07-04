@@ -1,11 +1,11 @@
--- based on TvdL Walking Rebuild V2 1.6.1 by
-scriptName = "Enhanced Walking Rebuild 1.0"
+-- Based on TvdL Walking Rebuild V2 1.6.1 by ?
+scriptName = "Enhanced Walking Rebuild"
+scriptVersion = 1.0
 buildNumber = 2
 
-
 --[[
-Walking Rebuild V4 - Sphered
-all options at end
+Walking Rebuild v4 - Sphered
+All options at end
 Modified by TvdL, made V2 and using my modules.
 Options are now interactive
 ver 1.6.0 by Bruno Kestemont added inward, outward and slice ward walks
@@ -13,7 +13,6 @@ ver 1.6.1 debugged slices
 TO DO: bug see DEBUG lines
 
 ver 1.6.2: Modified maximum rebuild length to actual number of segments, added slider to adjust max iterations
-
 ]]--
 
 function down(x)
@@ -774,13 +773,13 @@ end
 
 function Gibaj(jak, iters, minppi) --score conditioned recursive wiggle/shake
  if jak == nil then
- 	jak = "wa"
+	jak = "wa"
  end
  if iters == nil then
- 	iters = 6
+	iters = 6
  end
  if minppi == nil then
- 	minppi = 0.04
+	minppi = 0.04
  end
  if iters > 0 then
 	iters = iters - 1
