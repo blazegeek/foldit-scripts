@@ -1,7 +1,5 @@
 --[[
-	AA Edit - get and set primary structure
-
-	The primary structure of a protein is the sequence of the amino acids that make up the protein.
+	AA Edit - Get and Set Primary Structure
 
 	AA Edit displays the current primary structure as a sequence of single-character amino acid codes. (Similar codes are used for DNA and RNA, see "SPECIAL CASES" below.)
 
@@ -56,7 +54,7 @@
 -- Globals
 scriptName = "AA Edit"
 scriptVersion = 2.0.2.1
-buildNumber = 1
+buildNumber = 2
 printVerbose = false
 
 isMutable = false -- true if any mutable segments found
@@ -515,51 +513,29 @@ function setChain(chain)
 end
 
 function GetParameters(chainZ, peptides, getChainSequenceFASTA, minSegment, maxSegment, totalLength, totalMutableChainCount)
-	local dlog = dialog.CreateDialog(scriptName)
+	local dlg = dialog.CreateDialog(scriptName)
 
-	dlog.sc0  = dialog.AddLabel("Segment count = " .. structure.GetCount())
+	dlg.sc0  = dialog.AddLabel("Segment count = " .. structure.GetCount())
 	local cwd = "chain"
 	if #chainZ > 1 then
 		cwd = "chains"
 	end
-	dlog.chz  = dialog.AddLabel(#chainZ .. " chains")
+	dlg.chz  = dialog.AddLabel(#chainZ .. " chains")
 	for i = 1, #chainZ do
 		local chain = chainZ[i]
-		dlog["chn" .. i .. "l1"] = dialog.AddLabel("Chain " .. chain.chainID .. " ("	.. chainTypes[chainZ[i].chainType] .. ")")
-		dlog["chn" .. i .. "l2"] = dialog.AddLabel ("Segments " .. chain.sequenceStart ..	"-"	.. chain.sequenceEnd .. ", mutables = " .. chain.mutableCount ..	", length = "	.. chain.sequenceLength)
-		dlog["chn" .. i .. "ps"] = dialog.AddTextbox("Seq", chain.sequenceFASTA)
+		dlg["labelChain" .. i] = dialog.AddLabel("Chain " .. chain.chainID .. " ("	.. chainTypes[chainZ[i].chainType] .. ")")
+		dlg["labelSegments" .. i] = dialog.AddLabel ("Segments: " .. chain.sequenceStart ..	"-"	.. chain.sequenceEnd, "Mutables: " .. chain.mutableCount,	"Length: " .. chain.sequenceLength)
+		dlg["txtChainSequence" .. i] = dialog.AddTextbox("Seq", chain.sequenceFASTA)
 	end
 
-	dlog.u0 = dialog.AddLabel("")
 	if isMutable then
-		dlog.u1 = dialog.AddLabel("Usage: click in text box, ")
-		dlog.u2 = dialog.AddLabel("then use select all and copy, cut, or paste")
-		dlog.u3 = dialog.AddLabel("to save or change primary structure")
-	else
-		dlog.u1 = dialog.AddLabel("Usage: click in text box,")
-		dlog.u2 = dialog.AddLabel("then use select all and copy")
-		dlog.u3 = dialog.AddLabel("to save primary structure")
+		dlg.ok = dialog.AddButton("Change" , 1)
 	end
-	dlog.w0 = dialog.AddLabel("")
-	if isMutable then
-		dlog.w1 = dialog.AddLabel("Windows: Ctrl + A = select all")
-		dlog.w2 = dialog.AddLabel("Windows: Ctrl + X = cut")
-		dlog.w3 = dialog.AddLabel("Windows: Ctrl + C = copy")
-		dlog.w4 = dialog.AddLabel("Windows: Ctrl + V = paste")
-	else
-		dlog.w1 = dialog.AddLabel("Windows: Ctrl + A = select all")
-		dlog.w3 = dialog.AddLabel("Windows: Ctrl + C = copy")
-	end
-	dlog.z0 = dialog.AddLabel("")
+	dlg.cancel = dialog.AddButton("Cancel" , 0)
 
-	if isMutable then
-		dlog.ok = dialog.AddButton("Change" , 1)
-	end
-	dlog.exit = dialog.AddButton("Cancel" , 0)
-
-	if dialog.Show(dlog) > 0 then
+	if dialog.Show(dlg) > 0 then
 		for i = 1, #chainZ do
-			chainZ[i].sequenceFASTA = dlog["chn" .. i .. "ps"].value:lower():sub(1, chainZ[i].sequenceLength)
+			chainZ[i].sequenceFASTA = dlg["txtChainSequence" .. i].value:lower():sub(1, chainZ[i].sequenceLength)
 		end
 		return true
 	else
