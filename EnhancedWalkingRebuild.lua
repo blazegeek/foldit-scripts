@@ -1,34 +1,24 @@
--- Based on TvdL Walking Rebuild V2 1.6.1 by ?
 scriptName = "Enhanced Walking Rebuild"
 scriptVersion = 1.0
 buildNumber = 2
 
---[[
-Walking Rebuild v4 - Sphered
-All options at end
-Modified by TvdL, made with Lua v2 and using my modules.
-
-Options are now interactive
-v1.6.0 by Bruno Kestemont added inward, outward and slice ward walks
-v1.6.1 debugged slices
-TO DO: bug see DEBUG lines
-v1.6.2: Modified maximum rebuild length to actual number of segments, added slider to adjust max iterations
-]]--
-
-function down(x)
-	return x - x % 1
+-- NOT USED
+function roundDown(x)
+	--return x - x % 1
+	return math.floor(x)
 end
 
-function CI(CInr)
-	if CInr > 0.99 then
+-- [NOTE] Why is it done this way?
+function setCI(currentCI)
+	if currentCI > 0.99 then
 		maxCI = true
 	else
 		maxCI = false
 	end
-	behavior.SetClashImportance(CInr * CIfactor)
+	behavior.SetClashImportance(currentCI * CIfactor)
 end
 
-function CheckCI()
+function checkCI()
 	local ask = dialog.CreateDialog("Clash importance is not 1")
 	ask.l1 = dialog.AddLabel("Last change to change it")
 	ask.l2 = dialog.AddLabel("CI settings will be multiplied by set CI")
@@ -54,17 +44,19 @@ function getScore(pose)
 	end
 end
 
+-- NOT USED
 function segmentScore(pose)
 	if pose == nil then
 		pose = current
 	end
 	local total = 8000
-	for i = 1, segCount2 do
+	for i = 1, segCount do
 		total = total + pose.GetSegmentEnergyScore(i)
 	end
 	return total
 end
 
+-- NOT USED
 function scoreRecentBest()
 	return getScore(recentbest)
 end
@@ -73,34 +65,34 @@ function round3(x)
 		return x - x % 0.001
 end
 
+-- NOT USED
 function saveBest()
-	local g = getScore() - bestScore
-	if g > 0 then
-		if g > 0.001 then
-			print("Gained another " .. round3(g) .. " points")
+	local interimGain = getScore() - bestScore
+	if interimGain > 0 then
+		if interimGain > 0.001 then
+			print("Gained another " .. round3(interimGain) .. " points")
 		end
 		bestScore = getScore()
 		save.Quicksave(3)
 	end
 end
 
--- doWiggle function
 -- Optimized due to Susumes ideas
 -- Note the extra parameter to be used if only selected parts must be done
-function doWiggle(how, iters, minppi, onlyselected)
-	--score conditioned recursive wiggle/shake
-	--fixed a bug, absolute difference is the threshold now
+-- NOT USED
+function doWiggle(how, iters, minPPI, onlySelected)
+	-- Fixed a bug () absolute difference is the threshold now)
 	if how == nil then
 		how = "wa"
 	end
 	if iters == nil then
 		iters = 3
 	end
-	if minppi == nil then
-		minppi = 0.1
+	if minPPI == nil then
+		minPPI = 0.1
 	end
-	if onlyselected == nil then
-		onlyselected = false
+	if onlySelected == nil then
+		onlySelected = false
 	end
 
 	local wiggleFactor = 1
@@ -108,8 +100,7 @@ function doWiggle(how, iters, minppi, onlyselected)
 	if maxCI then
 		wiggleFactor = 1
 	end
-	local sp = getScore()
-	if onlyselected then
+	if onlySelected then
 		if how == "s" then
 			-- Shake is not considered to do much in second or more rounds
 			structure.ShakeSidechainsSelected(1)
@@ -137,33 +128,29 @@ function doWiggle(how, iters, minppi, onlyselected)
 	end
 end
 
--- end of handy shorts module
--- Segment set and list module
--- Notice that most functions assume that the sets are well formed
--- (=ordered and no overlaps)
--- 02-05-2012 TvdL Free to use for non commercial purposes
-function SegmentListToSet(list)
+-- Notice that most functions assume that the sets are well formed (ordered and no overlaps)
+function segmentListToSet(list)
 	local result = {}
-	local f = 0
-	local l = -1
+	local first = 0
+	local last = -1
 	table.sort(list)
 	for i = 1, #list do
-		if list[i] ~= l + 1 and list[i] ~= l then
+		if list[i] ~= last + 1 and list[i] ~= last then
 			-- note: duplicates are removed
-			if l > 0 then
-				result[#result + 1] = {f, l}
+			if last > 0 then
+				result[#result + 1] = {first, last}
 			end
-			f = list[i]
+			first = list[i]
 		end
-		l = list[i]
+		last = list[i]
 	end
-	if l > 0 then
-		result[#result + 1] = {f, l}
+	if last > 0 then
+		result[#result + 1] = {first, last}
 	end
 	return result
 end
 
-function SegmentSetToList(set)
+function segmentSetToList(set)
 	local result = {}
 	for i = 1, #set do
 		for k = set[i][1], set[i][2] do
@@ -173,17 +160,17 @@ function SegmentSetToList(set)
 	return result
 end
 
-function SegmentCleanSet(set)
+function segmentCleanSet(set)
 -- Makes it well formed
-	return SegmentListToSet(SegmentSetToList(set))
+	return segmentListToSet(segmentSetToList(set))
 end
 
-function SegmentInvertSet(set, maxSeg)
+function segmentInvertSet(set, maxSeg)
 	-- Gives back all segments not in the set
 	-- maxSeg is added for ligand
 	local result = {}
 	if maxSeg == nil then
-		maxSeg=structure.GetCount()
+		maxSeg = structure.GetCount()
 	end
 	if #set == 0 then
 		return {{1, maxSeg}}
@@ -200,7 +187,8 @@ function SegmentInvertSet(set, maxSeg)
 	return result
 end
 
-function SegmentInvertList(list)
+-- NOT USED
+function segmentInvertList(list)
 	table.sort(list)
 	local result = {}
 	for i = 1, #list - 1 do
@@ -208,13 +196,14 @@ function SegmentInvertList(list)
 			result[#result + 1] = j
 		end
 	end
-	for j = list[#list] + 1, segCount2 do
+	for j = list[#list] + 1, segCount do
 		result[#result + 1] = j
 	end
 	return result
 end
 
-function SegmentInList(s, list)
+-- NOT USED
+function isSegmentInList(s, list)
 	table.sort(list)
 	for i = 1, #list do
 		if list[i] == s then
@@ -226,7 +215,7 @@ function SegmentInList(s, list)
 	return false
 end
 
-function SegmentInSet(set, s)
+function isSegmentInSet(set, s)
 	for i = 1, #set do
 		if s >= set[i][1] and s <= set[i][2] then
 			return true
@@ -237,7 +226,7 @@ function SegmentInSet(set, s)
 	return false
 end
 
-function SegmentJoinList(list1, list2)
+function segmentJoinList(list1, list2)
 	local result = list1
 	if result == nil then
 		return list2
@@ -249,11 +238,12 @@ function SegmentJoinList(list1, list2)
 	return result
 end
 
-function SegmentJoinSet(set1, set2)
-	return SegmentListToSet(SegmentJoinList(SegmentSetToList(set1), SegmentSetToList(set2)))
+-- NOT USED
+function segmentJoinSet(set1, set2)
+	return segmentListToSet(segmentJoinList(segmentSetToList(set1), segmentSetToList(set2)))
 end
 
-function SegmentCommList(list1, list2)
+function segmentCommList(list1, list2)
 	local result = {}
 	table.sort(list1)
 	table.sort(list2)
@@ -275,19 +265,20 @@ function SegmentCommList(list1, list2)
 	return result
 end
 
-function SegmentCommSet(set1, set2)
-	return SegmentListToSet(SegmentCommList(SegmentSetToList(set1), SegmentSetToList(set2)))
+function segmentCommSet(set1, set2)
+	return segmentListToSet(segmentCommList(segmentSetToList(set1), segmentSetToList(set2)))
 end
 
-function SegmentSetMinus(set1, set2)
-	return SegmentCommSet(set1, SegmentInvertSet(set2))
+function segmentSetMinus(set1, set2)
+	return segmentCommSet(set1, segmentInvertSet(set2))
 end
 
-function SegmentPrintSet(set)
-	print(SegmentSetToString(set))
+-- NOT USED
+function segmentPrintSet(set)
+	print(segmentSetToString(set))
 end
 
-function SegmentSetToString(set)
+function segmentSetToString(set)
 	local line = ""
 	for i = 1, #set do
 		if i ~= 1 then
@@ -298,48 +289,48 @@ function SegmentSetToString(set)
 	return line
 end
 
-function SegmentSetInSet(set, sub)
+-- NOT USED
+function segmentSetInSet(set, sub)
 	if sub == nil then
 		return true
 	end
 	-- Checks if sub is a proper subset of set
 	for i = 1, #sub do
-		if not SegmentRangeInSet(set, sub[i]) then
+		if not segmentRangeInSet(set, sub[i]) then
 			return false
 		end
 	end
 	return true
 end
 
-function SegmentRangeInSet(set, range)
+function segmentRangeInSet(set, range)
 	if range == nil or #range == 0 then
 		return true
 	end
-	local b = range[1]
-	local e = range[2]
+	local rangeBeginning = range[1]
+	local rangeEnd = range[2]
 	for i = 1, #set do
-		if b >= set[i][1] and b <= set[i][2] then
-			return (e <= set[i][2])
-		elseif e <= set[i][1] then
+		if rangeBeginning >= set[i][1] and rangeBeginning <= set[i][2] then
+			return (rangeEnd <= set[i][2])
+		elseif rangeEnd <= set[i][1] then
 			return false
 		end
 	end
 	return false
 end
 
-function SegmentSetToBool(set)
+-- NOT USED
+function segmentSetToBool(set)
 	local result = {}
 	for i = 1, structure.GetCount() do
-		result[i] = SegmentInSet(set, i)
+		result[i] = isSegmentInSet(set, i)
 	end
 	return result
 end
---- End of Segment Set module
 
--- Module Find Segment Types
-function FindMutablesList()
+function findMutablesList()
 	local result = {}
-	for i = 1, segCount2 do
+	for i = 1, segCount do
 		if structure.IsMutable(i) then
 			result[#result + 1] = i
 		end
@@ -347,13 +338,13 @@ function FindMutablesList()
 	return result
 end
 
-function FindMutables()
-	return SegmentListToSet(FindMutablesList())
+function findMutables()
+	return segmentListToSet(findMutablesList())
 end
 
-function FindFrozenList()
+function findFrozenList()
 	local result = {}
-	for i = 1, segCount2 do
+	for i = 1, segCount do
 		if freeze.IsFrozen(i) then
 			result[#result + 1] = i
 		end
@@ -361,13 +352,13 @@ function FindFrozenList()
 	return result
 end
 
-function FindFrozen()
-	return SegmentListToSet(FindFrozenList())
+function findFrozen()
+	return segmentListToSet(findFrozenList())
 end
 
-function FindLockedList()
+function findLockedList()
 	local result = {}
-	for i = 1, segCount2 do
+	for i = 1, segCount do
 		if structure.IsLocked(i) then
 			result[#result + 1] = i
 		end
@@ -375,11 +366,11 @@ function FindLockedList()
 	return result
 end
 
-function FindLocked()
-	return SegmentListToSet(FindLockedList())
+function findLocked()
+	return segmentListToSet(findLockedList())
 end
 
-function FindSelectedList()
+function findSelectedList()
 	local result = {}
 	for i = 1, segCount do
 		if selection.IsSelected(i) then
@@ -389,13 +380,13 @@ function FindSelectedList()
 	return result
 end
 
-function FindSelected()
-	return SegmentListToSet(FindSelectedList())
+function findSelected()
+	return segmentListToSet(findSelectedList())
 end
 
-function FindAAtypeList(aa)
+function findAminoAcidTypeList(aa)
 	local result = {}
-	for i = 1, segCount2 do
+	for i = 1, segCount do
 		if structure.GetSecondaryStructure(i) == aa then
 			result[#result + 1] = i
 		end
@@ -403,24 +394,22 @@ function FindAAtypeList(aa)
 	return result
 end
 
-function FindAAtype(aa)
-	return SegmentListToSet(FindAAtypeList(aa))
+function findAminoAcidType(aa)
+	return segmentListToSet(findAminoAcidTypeList(aa))
 end
 
-function FindAminotype(at) --NOTE: only this one gives a list not a set
+-- NOT USED
+function findAminoType(at) --NOTE: only this one gives a list not a set
 	local result = {}
-	for i = 1, segCount2 do
+	for i = 1, segCount do
 		if structure.GetAminoAcid(i) == at then
 			result[#result + 1] = i
 		end
 	end
 	return result
 end
--- end Module Find Segment Types
 
--- Module setsegmentset
--- Tvdl, 11-05-2012 Free to use for noncommercial purposes
-function SetSelection(set)
+function setSelection(set)
 	selection.DeselectAll()
 	if set ~= nil then
 		for i = 1, #set do
@@ -429,11 +418,11 @@ function SetSelection(set)
 	end
 end
 
-function SelectAround(segStart, segEnd, radius, nodeselect)
+function selectAround(segStart, segEnd, radius, nodeselect)
 	if nodeselect~=true then
 		selection.DeselectAll()
 	end
-	for i = 1, segCount2 do
+	for i = 1, segCount do
 		for x = segStart, segEnd do
 			if structure.GetDistance(x, i) < radius then
 				selection.Select(i)
@@ -443,16 +432,17 @@ function SelectAround(segStart, segEnd, radius, nodeselect)
 	end
 end
 
-function SetAAtype(set, aa)
-	local saveselected = FindSelected()
-	SetSelection(set)
+-- NOT USED
+function setAminoAcidType(set, aa)
+	local saveselected = findSelected()
+	setSelection(set)
 	structure.SetSecondaryStructureSelected(aa)
-	SetSelection(saveselected)
+	setSelection(saveselected)
 end
 
-function AllLoop() --turning entire structure to loops
+function allLoops()
 	local anychange = false
-	for i = 1, segCount2 do
+	for i = 1, segCount do
 		if structure.GetSecondaryStructure(i) ~= "L" then
 			anychange = true
 			break
@@ -460,157 +450,139 @@ function AllLoop() --turning entire structure to loops
 	end
 	if anychange then
 		save.SaveSecondaryStructure()
-		SAVEDstructs = true
+		saveStructures = true
 		selection.SelectAll()
 		structure.SetSecondaryStructureSelected("L")
 	end
 end
 
--- Module Random
--- Tvdl, 01-11-2012
-
-function Seedrandom()
-	math.randomseed(Randomseed)
+function seedRandom()
+	math.randomSeed(randomSeed)
 	math.random(100) -- Because the first is not random
 end
 
--- Thanks too Rav4pl
-function ShuffleTable(tab) --randomize order of elements
-	local cnt = #tab
-	for i = 1, cnt do
-		local r = math.random(cnt)
+function shuffleTable(tab)
+	for i = 1, #tab do
+		local r = math.random(cnt) -- Not very convincing: it gives always the same number on same puzzle
 		tab[i], tab[r] = tab[r], tab[i]
 	end
 	return tab
 end
 
---START MIX TABLE subroutine by Bruno Kestemont 16/11/2015, idea by Puxatudo & Jeff101 from Go Science
-function ShuffleTable(tab) --randomize order of elements
+function mixInwardTable(tab) -- 1234567 = 7254361 [WARNING] If done twice, it returns to the original table
 	local cnt = #tab
-	for i = 1, cnt do
-		local r = math.random(cnt) -- not very convincing ! it gives always the same number on same puzzle
-		tab[i], tab[r] = tab[r], tab[i]
-	end
-	return tab
-end
-
-function MixInwardTable(tab) -- 1234567 = 7254361 WARNING: if done twice, it returns to the original table
-	local cnt = #tab -- 1234567 = 7254361
 	local mid = down(cnt / 2)
-	local adjust = 1 -- case of pair number of segments
+	local adjust = 1
 	local result = {}
-	local pair = true
+	local isPair = true
 	if mid < cnt / 2 then
 		adjust = 0
-	end -- case of impair number of segments
-	for i = 1, mid-adjust do -- mid remains untouched if impair cnt
-		pair = not pair
-		if pair then
-			result[i], result[cnt + 1 - i] = tab[i], tab[cnt + 1 - i] -- pair segs are kept untouched
+	end
+	for i = 1, mid - adjust do
+		isPair = not isPair
+		if isPair then
+			result[i], result[cnt + 1 - i] = tab[i], tab[cnt + 1 - i] -- Pair segments are kept untouched
 		else
-			result[i], result[cnt + 1 - i] = tab[cnt + 1 - i], tab[i] -- impairs segs are shifted (loop starts with last seg)
+			result[i], result[cnt + 1 - i] = tab[cnt + 1 - i], tab[i] -- Impair segments are shifted (loop starts with last seg)
 		end
 	end
 	return result
 end
 
-function InwardTable(tab) -- 1234567 = 7162534 WARNING: if done twice, it mixes everything like a feuillete bakery
-	local cnt = #tab -- 1234567 = 7162534
+function inwardTable(tab) -- 1234567 = 7162534 [WARNING] If done twice, it mixes everything like a feuillete bakery
+	local cnt = #tab
 	local cntup = 1
 	local result = {}
-	local pair = true
+	local isPair = true
 	for i = 1, #tab do
-		pair = not pair
-		if pair then
-			result[i] = tab[cntup] -- pairs segments are taken from bottom
+		isPair = not isPair
+		if isPair then
+			result[i] = tab[cntup] -- Pair segments are taken from bottom
 			cntup = cntup + 1
 		else
-			result[i] = tab[cnt] -- impairs segs are taken from end (loop starts with last seg)
+			result[i] = tab[cnt] -- Impairs segments are taken from end (loop starts with last seg)
 			cnt = cnt - 1
 		end
 	end
 	return result
 end
 
-function Reverselist(tab) -- 1234567=7654321
+function reverseList(tab) -- 1234567 = 7654321
 	local cnt = #tab
 	local result = {}
-	for i = 1, #tab do -- simply inverts the table 7162534=4536271
+	for i = 1, #tab do
 		result[i] = tab[cnt + 1 - i]
 	end
 	return result
 end
 
-function OutwardTable(tab) --1234567=4352617
-	local result={}
-	result = Reverselist(InwardTable(tab))
+function outwardTable(tab) -- 1234567 = 4352617
+	local result = {}
+	result = reverseList(inwardTable(tab))
 	return result
 end
---END MIX TABLE
 
--- Module AskSelections
--- 02-05-2012 Timo van der Laan, Free to use for non commercial purposes
-function AskForSelections(title, mode)
-	local result = {{1, structure.GetCount()}} -- All segments
+function askForSelections(title, mode)
+	local result = {{1, structure.GetCount()}}
 	if mode == nil then
 		mode = {}
 	end
-	if mode.askloops == nil then
-		mode.askloops = true
+	if mode.askLoops == nil then
+		mode.askLoops = true
 	end
-	if mode.asksheets == nil then
-		mode.asksheets = true
+	if mode.askSheets == nil then
+		mode.askSheets = true
 	end
-	if mode.askhelixes == nil then
-		mode.askhelixes = true
+	if mode.askHelices == nil then
+		mode.askHelices = true
 	end
-	if mode.askligands == nil then
-		mode.askligands = false
+	if mode.askLigands == nil then
+		mode.askLigands = false
 	end
-	if mode.askselected == nil then
-		mode.askselected = true
+	if mode.askSelected == nil then
+		mode.askSelected = true
 	end
-	if mode.asknonselected == nil then
-		mode.asknonselected = true
+	if mode.askUnselected == nil then
+		mode.askUnselected = true
 	end
-	if mode.askmutateonly == nil then
-		mode.askmutateonly = true
+	if mode.askMutatableOnly == nil then
+		mode.askMutatableOnly = true
 	end
-	if mode.askignorelocks == nil then
-		mode.askignorelocks = true
+	if mode.askIgnoreLocks == nil then
+		mode.askIgnoreLocks = true
 	end
-	if mode.askignorefrozen == nil then
-		mode.askignorefrozen = true
+	if mode.askIgnoreFrozen == nil then
+		mode.askIgnoreFrozen = true
 	end
-	if mode.askranges == nil then
-		mode.askranges = true
+	if mode.askRanges == nil then
+		mode.askRanges = true
 	end
-	if mode.defloops == nil then
-		mode.defloops = true
+	if mode.doLoops == nil then
+		mode.doLoops = true
 	end
-	if mode.defsheets == nil then
-		mode.defsheets = true
+	if mode.doSheets == nil then
+		mode.doSheets = true
 	end
-	if mode.defhelixes == nil then
-		mode.defhelixes = true
+	if mode.doHelices == nil then
+		mode.doHelices = true
 	end
-	if mode.defligands == nil then
-		mode.defligands = false
+	if mode.doLigands == nil then
+		mode.doLigands = false
 	end
-	if mode.defselected == nil then
-		mode.defselected = false
+	if mode.doSelected == nil then
+		mode.doSelected = false
 	end
-	if mode.defnonselected == nil then
-		mode.defnonselected = false
+	if mode.doUnselected == nil then
+		mode.doUnselected = false
 	end
-	if mode.defmutateonly == nil then
-		mode.defmutateonly = false
+	if mode.doMutableOnly == nil then
+		mode.doMutableOnly = false
 	end
-	if mode.defignorelocks == nil then
-		mode.defignorelocks = false
+	if mode.doIgnoreLocks == nil then
+		mode.doIgnoreLocks = false
 	end
-	if mode.defignorefrozen == nil then
-		mode.defignorefrozen = false
+	if mode.doIgnoreFrozen == nil then
+		mode.doIgnoreFrozen = false
 	end
 
 	local errFound = false
@@ -623,50 +595,50 @@ function AskForSelections(title, mode)
 			errFound = false
 		end
 
-		if mode.askloops then
-			ask.loops = dialog.AddCheckbox("Work on loops", mode.defloops)
-		elseif not mode.defloops then
-			ask.noloops = dialog.AddLabel("Loops will be auto excluded")
+		if mode.askLoops then
+			ask.loops = dialog.AddCheckbox("Work on loops", mode.doLoops)
+		elseif not mode.doLoops then
+			ask.noLoops = dialog.AddLabel("Loops will be auto excluded")
 		end
 
-		if mode.askhelixes then
-				ask.helixes = dialog.AddCheckbox("Work on helixes", mode.defhelixes)
-		elseif not mode.defhelixes then
-				ask.nohelixes = dialog.AddLabel("Helixes will be auto excluded")
+		if mode.askHelices then
+				ask.helixes = dialog.AddCheckbox("Work on helixes", mode.doHelices)
+		elseif not mode.doHelices then
+				ask.noHelices = dialog.AddLabel("Helixes will be auto excluded")
 		end
 
-		if mode.asksheets then
-				ask.sheets = dialog.AddCheckbox("Work on sheets", mode.defsheets)
-		elseif not mode.defsheets then
-				ask.nosheets = dialog.AddLabel("Sheets will be auto excluded")
+		if mode.askSheets then
+				ask.sheets = dialog.AddCheckbox("Work on sheets", mode.doSheets)
+		elseif not mode.doSheets then
+				ask.noSheets = dialog.AddLabel("Sheets will be auto excluded")
 		end
 
-		if mode.askligands then
-				ask.ligands = dialog.AddCheckbox("Work on ligands", mode.defligands)
-		elseif not mode.defligands then
-				ask.noligands = dialog.AddLabel("Ligands will be auto excluded")
+		if mode.askLigands then
+				ask.ligands = dialog.AddCheckbox("Work on ligands", mode.doLigands)
+		elseif not mode.doLigands then
+				ask.noLigands = dialog.AddLabel("Ligands will be auto excluded")
 		end
 
-		if mode.askselected then
-			ask.selected = dialog.AddCheckbox("Work only on selected", mode.defselected)
+		if mode.askSelected then
+			ask.selected = dialog.AddCheckbox("Work only on selected", mode.doSelected)
 		end
-		if mode.asknonselected then
-			ask.nonselected = dialog.AddCheckbox("Work only on nonselected", mode.defnonselected)
+		if mode.askUnselected then
+			ask.unselected = dialog.AddCheckbox("Work only on nonselected", mode.doUnselected)
 		end
-		if mode.askmutateonly then
-			ask.mutateonly = dialog.AddCheckbox("Work only on mutateonly", mode.defmutateonly)
+		if mode.askMutatableOnly then
+			ask.mutableOnly = dialog.AddCheckbox("Work only on mutateonly", mode.doMutableOnly)
 		end
-		if mode.askignorelocks then
-			ask.ignorelocks = dialog.AddCheckbox("Dont work on locked ones", true)
-		elseif mode.defignorelocks then
-			ask.nolocks = dialog.AddLabel("Locked ones will be auto excluded")
+		if mode.askIgnoreLocks then
+			ask.ignoreLocks = dialog.AddCheckbox("Dont work on locked ones", true)
+		elseif mode.doIgnoreLocks then
+			ask.noLocks = dialog.AddLabel("Locked ones will be auto excluded")
 		end
-		if mode.askignorefrozen then
-			ask.ignorefrozen = dialog.AddCheckbox("Dont work on frozen", true)
-		elseif mode.defignorefrozen then
-			ask.nofrozen = dialog.AddLabel("Frozen ones will be auto excluded")
+		if mode.askIgnoreFrozen then
+			ask.ignoreFrozen = dialog.AddCheckbox("Dont work on frozen", true)
+		elseif mode.doIgnoreFrozen then
+			ask.noFrozen = dialog.AddLabel("Frozen ones will be auto excluded")
 		end
-		if mode.askranges then
+		if mode.askRanges then
 			ask.R1 = dialog.AddLabel("Or put in segmentranges. Above selections also count")
 			ask.ranges = dialog.AddTextbox("Ranges", "")
 		end
@@ -676,57 +648,57 @@ function AskForSelections(title, mode)
 
 		if dialog.Show(ask) > 0 then
 			-- We start with all the segments including ligands
-			if mode.askloops then
-				mode.defloops = ask.loops.value
+			if mode.askLoops then
+				mode.doLoops = ask.loops.value
 			end
-			if not mode.defloops then
-				result = SegmentSetMinus(result, FindAAtype("L"))
+			if not mode.doLoops then
+				result = segmentSetMinus(result, findAminoAcidType("L"))
 			end
-			if mode.asksheets then
-				mode.defsheets = ask.sheets.value
+			if mode.askSheets then
+				mode.doSheets = ask.sheets.value
 			end
-			if not mode.defsheets then
-				result = SegmentSetMinus(result, FindAAtype("E"))
+			if not mode.doSheets then
+				result = segmentSetMinus(result, findAminoAcidType("E"))
 			end
-			if mode.askhelixes then
-				mode.defhelixes = ask.helixes.value
+			if mode.askHelices then
+				mode.doHelices = ask.helixes.value
 			end
-			if not mode.defhelixes then
-				result = SegmentSetMinus(result, FindAAtype("H"))
+			if not mode.doHelices then
+				result = segmentSetMinus(result, findAminoAcidType("H"))
 			end
-			if mode.askligands then
-				mode.defligands = ask.ligands.value
+			if mode.askLigands then
+				mode.doLigands = ask.ligands.value
 			end
-			if not mode.defligands then
-				result = SegmentSetMinus(result, FindAAtype("M"))
+			if not mode.doLigands then
+				result = segmentSetMinus(result, findAminoAcidType("M"))
 			end
-			if mode.askignorelocks then
-				mode.defignorelocks = ask.ignorelocks.value
+			if mode.askIgnoreLocks then
+				mode.doIgnoreLocks = ask.ignoreLocks.value
 			end
-			if mode.defignorelocks then
-				result = SegmentSetMinus(result, FindLocked())
+			if mode.doIgnoreLocks then
+				result = segmentSetMinus(result, findLocked())
 			end
-			if mode.askignorefrozen then
-				mode.defignorefrozen = ask.ignorefrozen.value
+			if mode.askIgnoreFrozen then
+				mode.doIgnoreFrozen = ask.ignoreFrozen.value
 			end
-			if mode.defignorefrozen then
-				result = SegmentSetMinus(result, FindFrozen())
+			if mode.doIgnoreFrozen then
+				result = segmentSetMinus(result, findFrozen())
 			end
-			if mode.askselected then
-				mode.defselected = ask.selected.value
+			if mode.askSelected then
+				mode.doSelected = ask.selected.value
 			end
-			if mode.defselected then
-				result = SegmentCommSet(result, FindSelected())
+			if mode.doSelected then
+				result = segmentCommSet(result, findSelected())
 			end
-			if mode.asknonselected then
-				mode.defnonselected = ask.nonselected.value
+			if mode.askUnselected then
+				mode.doUnselected = ask.nonselected.value
 			end
-			if mode.defnonselected then
-				result = SegmentCommSet(result, SegmentInvertSet(FindSelected()))
+			if mode.doUnselected then
+				result = segmentCommSet(result, segmentInvertSet(findSelected()))
 			end
-			if mode.askranges and ask.ranges.value ~= "" then
-				local rangetext = ask.ranges.value
-				local function Checknums(nums)
+			if mode.askRanges and ask.ranges.value ~= "" then
+				local rangeText = ask.ranges.value
+				local function checkNums(nums)
 				-- Now checking
 					if #nums % 2 ~= 0 then
 						print("Not an even number of segments found")
@@ -741,48 +713,47 @@ function AskForSelections(title, mode)
 					return true
 				end
 
-				local function ReadSegmentSet(data)
+				local function readSegmentSet(data)
 					local nums = {}
-					local NoNegatives = '%d+' -- - is not part of a number
+					local noNegatives = '%d+'
 					local result = {}
-					for v in string.gfind(data, NoNegatives) do
+					for v in string.gfind(data, noNegatives) do
 						table.insert(nums, tonumber(v))
 					end
-					if Checknums(nums) then
+					if checkNums(nums) then
 						for i = 1, #nums / 2 do
 							result[i] = {nums[2 * i - 1], nums[2 * i]}
 						end
-						result = SegmentCleanSet(result)
+						result = segmentCleanSet(result)
 					else
 						errFound = true
 						result = {}
 					end
 					return result
 				end
-				local rangelist = ReadSegmentSet(rangetext)
+				local rangeList = readSegmentSet(rangeText)
 				if not errFound then
-					result = SegmentCommSet(result, rangelist)
+					result = segmentCommSet(result, rangeList)
 				end
 			end
 		end
 	until not errFound
 	return result
 end
--- end of module AskSelections
 
-function Gibaj(jak, iters, minppi) --score conditioned recursive wiggle/shake
+function Gibaj(jak, iters, minPPI) -- Score-conditioned recursive wiggle/shake
  if jak == nil then
 	jak = "wa"
  end
  if iters == nil then
 	iters = 6
  end
- if minppi == nil then
-	minppi = 0.04
+ if minPPI == nil then
+	minPPI = 0.04
  end
  if iters > 0 then
 	iters = iters - 1
-	local sp = getScore()
+	local startScore = getScore()
 	if jak == "s" then
 		structure.ShakeSidechainsSelected(1)
 	elseif jak == "wb" then
@@ -795,40 +766,40 @@ function Gibaj(jak, iters, minppi) --score conditioned recursive wiggle/shake
 		selection.DeselectAll()
 		structure.WiggleAll(1, true, true)
 	end
-	local ep = getScore()
-	local ig = ep - sp
-	if ig > minppi then Gibaj(jak, iters, minppi) end
+	local endScore = getScore()
+	local interimGain = endScore - startScore
+	if interimGain > minPPI then Gibaj(jak, iters, minPPI) end
  end
 end
 
-function BlueFuse(locally)
+function blueFuze(locally)
 	recentbest.Save()
 	if locally ~= true then
 		selection.SelectAll()
 	end
-	CI(.05)
+	setCI(.05)
 	structure.ShakeSidechainsSelected(1)
-	CI(1)
+	setCI(1)
 	Gibaj()
-	CI(.07)
+	setCI(.07)
 	structure.ShakeSidechainsSelected(1)
-	CI(1)
+	setCI(1)
 	Gibaj()
 	recentbest.Restore()
-	CI(.3)
+	setCI(.3)
 	selection.DeselectAll()
 	structure.WiggleAll(1, true, true)
-	CI(1)
+	setCI(1)
 	Gibaj()
 	recentbest.Restore()
 end
 
-function Lws(minGain) --score conditioned local wiggle,
-	CI(1)
+function localWiggleShake(minGain) -- Score-conditioned local wiggle,
+	setCI(1)
 	if minGain == nil then
 		minGain = 1
 	end
-	repeat --wiggles selected segments
+	repeat
 		local scoreStart = getScore()
 		structure.LocalWiggleSelected(2, true, true)
 		local scoreEnd = getScore()
@@ -839,46 +810,46 @@ function Lws(minGain) --score conditioned local wiggle,
 	until wiggleGain < minGain
 end
 
-function AfterRebuild(lws, useBlueFuze, locally)
-	if lws == nil then
-		lws = true
+function postRebuild(doLocalWiggleShake, doBlueFuze, locally)
+	if doLocalWiggleShake == nil then
+		doLocalWiggleShake = true
 	end
-	if useBlueFuze == nil then
-		useBlueFuze = true
+	if doBlueFuze == nil then
+		doBlueFuze = true
 	end
 	recentbest.Save()
-	CI(1)
+	setCI(1)
 	Gibaj("s", 1)
 	Gibaj("ws", 1)
 	Gibaj("s", 1)
 	Gibaj("ws", 1)
-	if lws then
-		Lws(2)
+	if doLocalWiggleShake then
+		localWiggleShake(2)
 	end
-	if useBlueFuze then
-		BlueFuse(locally)
+	if doBlueFuze then
+		blueFuze(locally)
 	end
 	selection.SelectAll()
 	Gibaj()
 end
 
-function Rebuild(maxIters) --local rebuild until any change
-	if maxIters == nil then
-		maxIters = 5
+function rebuildSegments(maxRebuildIterations) -- Local rebuild until any change
+	if maxRebuildIterations == nil then
+		maxRebuildIterations = 5
 	end
 	local rebuildScore = -10000
 	local startScore = getScore()
 	save.Quicksave(9)
-	for j = 1, nRB do
+	for j = 1, numRebuilds do
 		local i = 0
 		repeat
-			local s = getScore()
+			local tempScore = getScore()
 			i = i + 1
-			if i > maxIters then
+			if i > maxRebuildIterations then
 				break
-			end --impossible to rebuild!
+			end
 			structure.RebuildSelected(i)
-		until getScore() ~= s
+		until getScore() ~= tempScore
 		if getScore() > rebuildScore then
 			save.Quicksave(9)
 			rebuildScore = getScore()
@@ -892,74 +863,74 @@ function Rebuild(maxIters) --local rebuild until any change
 	end
 end
 
-function LocalRebuild(segStart, segEnd, maxIters, sphere, lws, useBlueFuze)
+function localRebuild(segStart, segEnd, maxRebuildIterations, sphereSize, doLocalWiggleShake, doBlueFuze)
 	if segStart > segEnd then
 		segStart, segEnd = segEnd, segStart
 	end
 	if segStart ~= segEnd then
-		print("Working on sgmnts " .. segStart .. "-" .. segEnd .. " from " .. round3(getScore()))
+		print("Working on segments " .. segStart .. "-" .. segEnd .. " from " .. round3(getScore()))
 	else
-		print("Working on sgmnt " .. segStart .. " from " .. round3(getScore()))
+		print("Working on segment " .. segStart .. " from " .. round3(getScore()))
 	end
 	selection.DeselectAll()
 	selection.SelectRange(segStart, segEnd)
-	local sc = getScore()
-	local ok = Rebuild(maxIters)
+	local tempScore = getScore()
+	local ok = rebuildSegments(maxRebuildIterations)
 	if ok then
-		SelectAround(segStart, segEnd, sphere, true)
-		AfterRebuild(lws, useBlueFuze, true)
+		selectAround(segStart, segEnd, sphereSize, true)
+		postRebuild(doLocalWiggleShake, doBlueFuze, true)
 	end
-	local gain = getScore() - sc
-	if gain > 0 then
+	local interimGain = getScore() - tempScore
+	if interimGain > 0 then
 		save.Quicksave(3)
-		print("Rebuild accepted! Gain: ", gain)
-	elseif gain < 0 then
+		print("Rebuild accepted! Gain: ", interimGain)
+	elseif interimGain < 0 then
 		save.Quickload(3)
 	else
 		print("Unable to rebuild.")
 	end
 end
 
-function Build(worklist, len, maxIters, sphere, lws, useBlueFuze)
+function rebuildList(worklist, len, maxRebuildIterations, sphereSize, doLocalWiggleShake, doBlueFuze)
 	for i = 1, #worklist do
 		if worklist[i] == nil then
 			break
 		end -- DEBUG
 		local s1 = worklist[i]
-		if s1 + len - 1 <= segCount2 then
-			LocalRebuild(s1, s1 + len - 1, maxIters, sphere, lws, useBlueFuze)
+		if s1 + len - 1 <= segCount then
+			localRebuild(s1, s1 + len - 1, maxRebuildIterations, sphereSize, doLocalWiggleShake, doBlueFuze)
 		end
 	end
 end
 
-function startWalkingRebuild(worklist, startLength, endLength, maxIters, sphere, lws, useBlueFuze)
-	local sscore = getScore()
-	print("Walking Rebuild started. Score: ", round3(sscore))
+function startWalkingRebuild(worklist, startLength, endLength, maxRebuildIterations, sphereSize, doLocalWiggleShake, doBlueFuze)
+	local startScore = getScore()
+	print("Walking Rebuild started. Score: ", round3(startScore))
 	freeze.UnfreezeAll()
 	selection.DeselectAll()
 	recentbest.Save()
 	save.Quicksave(3)
-	local steplen = 1
+	local stepLength = 1
 	if startLength > endLength then
-		steplen = -1
+		stepLength = -1
 	end
-	for i = startLength, endLength, steplen do
+	for i = startLength, endLength, stepLength do
 		print("\nTrying rebuilds of length: " .. i)
-		Build(worklist, i, maxIters, sphere, lws, useBlueFuze)
+		rebuildList(worklist, i, maxRebuildIterations, sphereSize, doLocalWiggleShake, doBlueFuze)
 	end
-	print("Total rebuild gain: ", round3(getScore() - sscore))
+	print("Total rebuild interimGain: ", round3(getScore() - startScore))
 	cleanup("Finishing")
 end
 
 function AskWalking()
-	Seedrandom()
+	seedRandom()
 	local ask = dialog.CreateDialog(scriptName .. " build " .. buildNumber)
 	ask.l0 = dialog.AddLabel("From length can be higher then To length")
-	ask.firstlen = dialog.AddSlider("From length:", startLength, 1, segCount, 0) -- changed maximum length to segment count
-	ask.lastlen = dialog.AddSlider("To length:", endLength, 1, segCount, 0)
+	ask.startLength = dialog.AddSlider("From length:", startLength, 1, segCount, 0)
+	ask.endLength = dialog.AddSlider("To length:", endLength, 1, segCount, 0)
 	ask.l1 = dialog.AddLabel("Pick the best rebuild of")
-	ask.nrRB = dialog.AddSlider("Number of RBs:", nRB, 1, 10, 0)
-	ask.maxIters = dialog.AddSlider("Max Iterations:", maxIters, 1, 10, 0) -- added slider to adjust max iterations
+	ask.numRebuilds = dialog.AddSlider("Number of RBs:", numRebuilds, 1, 10, 0)
+	ask.maxRebuildIterations = dialog.AddSlider("Max Iterations:", maxRebuildIterations, 1, 10, 0)
 	ask.selSeg = dialog.AddCheckbox("Select where to work on", false)
 	ask.backward = dialog.AddCheckbox("Backward walk", false)
 	ask.random = dialog.AddCheckbox("Random walk", false)
@@ -967,21 +938,21 @@ function AskWalking()
 	ask.outward = dialog.AddCheckbox("Outward walk", false)
 	ask.sliceward = dialog.AddCheckbox("Sliceward walk", false)
 
-	ask.allloop = dialog.AddCheckbox("All loops", false)
-	ask.spheresize = dialog.AddSlider("Sphere size:", sphere, 3, 15, 0)
-	ask.uselw = dialog.AddCheckbox("Do local wiggles:", lws)
-	ask.usebf = dialog.AddCheckbox("Use Blue Fuze:", useBlueFuze)
+	ask.allLoops = dialog.AddCheckbox("All loops", false)
+	ask.sphereSize = dialog.AddSlider("Sphere size:", sphereSize, 3, 15, 0)
+	ask.doLocalWiggleShake = dialog.AddCheckbox("Do local wiggles:", doLocalWiggleShake)
+	ask.doBlueFuze = dialog.AddCheckbox("Use Blue Fuze:", doBlueFuze)
 	ask.OK = dialog.AddButton("OK" ,1)
 	ask.Cancel = dialog.AddButton("Cancel", 0)
 
 	if dialog.Show(ask) > 0 then
-		startLength = ask.firstlen.value
-		endLength = ask.lastlen.value
-		local worklist = {{1, segCount2}} -- List of segments to work on
+		startLength = ask.startLength.value
+		endLength = ask.endLength.value
+		local worklist = {{1, segCount}} -- List of segments to work on
 		if ask.selSeg.value then
-			worklist=SegmentSetToList(AskForSelections(scriptName))
+			worklist=segmentSetToList(askForSelections(scriptName))
 		else
-			worklist = SegmentSetToList(worklist)
+			worklist = segmentSetToList(worklist)
 		end
 		if ask.backward.value then
 			local blist = {}
@@ -991,25 +962,25 @@ function AskWalking()
 			worklist = blist
 		end
 		if ask.random.value then
-			worklist = ShuffleTable(worklist)
+			worklist = shuffleTable(worklist)
 		end
 		if ask.inward.value then
-			worklist = InwardTable(worklist)
+			worklist = inwardTable(worklist)
 		end
 		if ask.outward.value then
-			worklist = OutwardTable(worklist)
+			worklist = outwardTable(worklist)
 		end
 		if ask.sliceward.value then
-			worklist = MixInwardTable(worklist)
+			worklist = mixInwardTable(worklist)
 		end
-		if ask.allloop.value then
-			AllLoop()
+		if ask.allLoops.value then
+			allLoops()
 		end
-		sphere = ask.spheresize.value
-		lws = ask.uselw.value
-		useBlueFuze = ask.usebf.value
-		nRB = ask.nrRB.value
-		startWalkingRebuild(worklist, startLength, endLength, maxIters, sphere, lws, useBlueFuze)
+		sphereSize = ask.sphereSize.value
+		doLocalWiggleShake = ask.doLocalWiggleShake.value
+		doBlueFuze = ask.doBlueFuze.value
+		numRebuilds = ask.numRebuilds.value
+		startWalkingRebuild(worklist, startLength, endLength, maxRebuildIterations, sphereSize, doLocalWiggleShake, doBlueFuze)
 	else
 		print("Cancelled")
 		return
@@ -1018,9 +989,9 @@ end
 
 function cleanup(err)
 	print("Restoring CI, best result and structures")
-	CI(1)
+	setCI(1)
 	save.Quickload(3)
-	if SAVEDstructs then
+	if saveStructures then
 		save.LoadSecondaryStructure()
 	end
 	selection.DeselectAll()
@@ -1029,10 +1000,9 @@ end
 
 function main()
 	disableFilters = false
-	SAVEDstructs = true
-	Randomseed=os.time()%1000000
-	nRB = 1 --Nr of different rebuilds to be made
-	-- New WiggleFactor
+	saveStructures = true
+	randomSeed = os.time() % 1000000
+	numRebuilds = 1
 	wiggleFactor = 1
 
 	-- On request of gmn
@@ -1040,46 +1010,31 @@ function main()
 	maxCI = true
 
 	segCount = structure.GetCount()
-	segCount2 = segCount
 
-	while structure.GetSecondaryStructure(segCount2) == "M" do
-		segCount2 = segCount2 - 1
+	while structure.GetSecondaryStructure(segCount) == "M" do
+		segCount = segCount - 1
 	end
 
-	startLength = segCount -- changed initial value to maximum
-	endLength = 1 -- changed to min
-	maxIters = 5 -- this can now be adjusted via dialog
-	sphere = 9
-	lws = true
-	useBlueFuze = true
+	startLength = segCount
+	endLength = 1
+	maxRebuildIterations = 5
+	sphereSize = 9
+	doLocalWiggleShake = true
+	doBlueFuze = true
 
 	-- Handy shorts module
 	normal = (current.GetExplorationMultiplier() == 0)
 
 	if behavior.GetClashImportance() < 0.99 then
-		CheckCI()
+		checkCI()
 	end
-	CIfactor=behavior.GetClashImportance()
+	CIfactor = behavior.GetClashImportance()
 
 	bestScore = current.GetScore()
 	save.Quicksave(3)
 
-	print(scriptName .. " build " .. buildNumber)
+	print(scriptName .. " v" .. scriptVersion .. " build " .. buildNumber)
 	AskWalking()
 end
-
---[[
-startWalkingRebuild(usesegs,startLength, endLength, maxIters, sphere, lws, useBlueFuze)
-usesegs- segmentlist to rebuild
-startLength- first sgmnts len to be rebuild (may be even 1)
-endLength- last sgmnts len to be rebuild (may be less then startLength)
-maxIters- maximum tries to rebuild
-sphere- sphere size for shake/wiggle after rebuild
-lws- LWS sphere around (min gain 2pts, not LWSing totally)
-useBlueFuze- BlueFuze sphere around
-
-Note: 'loopmode' variable removed as it isn't used in this script (relic from previous versions?)
-]]--
-
 
 xpcall(main, cleanup)
